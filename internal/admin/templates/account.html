@@ -1,0 +1,10 @@
+{{define "content"}}
+<form method="post" action="/account" class="card narrow">
+  <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+  <label>Obecne hasło <input type="password" name="current" autocomplete="current-password" required></label>
+  <label>Nowe hasło (min. 12 znaków) <input type="password" name="new" autocomplete="new-password" required minlength="12"></label>
+  <label>Powtórz nowe hasło <input type="password" name="confirm" autocomplete="new-password" required minlength="12"></label>
+  <button>Zmień hasło</button>
+  <p class="muted">Zmiana hasła wyloguje wszystkie sesje.</p>
+</form>
+{{end}}

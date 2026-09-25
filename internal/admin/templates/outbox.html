@@ -1,0 +1,16 @@
+{{define "content"}}
+{{$csrf := .Session.CSRF}}
+<p>Filtr: <a href="/outbox">wszystkie</a> · <a href="/outbox?status=pending">oczekujące</a> · <a href="/outbox?status=sent">wysłane</a> · <a href="/outbox?status=failed">nieudane</a></p>
+<table>
+<thead><tr><th>#</th><th>Utworzono</th><th>Formularz</th><th>Rodzaj</th><th>Do</th><th>Temat</th><th>Status</th><th>Próby</th><th>Błąd</th><th></th></tr></thead>
+<tbody>
+{{range .Data.Items}}
+<tr>
+  <td>{{.ID}}</td><td>{{time .CreatedAt}}</td><td>{{.FormID}}</td><td>{{.Kind}}</td><td>{{.To}}</td><td>{{.Subject}}</td>
+  <td class="st-{{.Status}}">{{.Status}}</td><td>{{.Attempts}}</td><td class="muted">{{.LastError}}</td>
+  <td>{{if eq .Status "failed"}}<form method="post" action="/outbox/{{.ID}}/retry" class="inline"><input type="hidden" name="csrf" value="{{$csrf}}"><button class="link">ponów</button></form>{{end}}</td>
+</tr>
+{{else}}<tr><td colspan="10">Pusto.</td></tr>{{end}}
+</tbody>
+</table>
+{{end}}

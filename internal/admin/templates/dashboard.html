@@ -1,0 +1,25 @@
+{{define "content"}}
+{{with .Data}}
+<p class="muted">Wysyłka: <b>{{.Mailer}}</b>{{if .Failed}} · <a class="warn" href="/outbox?status=failed">{{.Failed}} nieudanych maili</a>{{end}}</p>
+<p><a class="button" href="/forms/new">+ Nowy formularz</a></p>
+{{if .Forms}}
+<table>
+<thead><tr><th>ID</th><th>Nazwa</th><th>Status</th><th>Ochrona</th><th>Zgłoszenia</th><th></th></tr></thead>
+<tbody>
+{{range .Forms}}
+<tr>
+  <td><code>{{.Def.ID}}</code></td>
+  <td>{{.Def.Title}}</td>
+  <td>{{if .Live}}<span class="ok">aktywny</span>{{else}}<span class="muted">wyłączony</span>{{end}}</td>
+  <td>{{if .Def.Challenge}}challenge{{if .Def.PowBits}} + PoW {{.Def.PowBits}}b{{end}}{{else}}<span class="warn">bez challenge</span>{{end}}</td>
+  <td><a href="/forms/{{.Def.ID}}/submissions">{{.Count}}</a></td>
+  <td class="actions"><a href="/forms/{{.Def.ID}}">Konfiguracja</a> · <a href="/forms/{{.Def.ID}}/snippet">Kod HTML</a></td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}
+<p>Brak formularzy.</p>
+{{end}}
+{{end}}
+{{end}}

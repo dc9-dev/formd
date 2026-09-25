@@ -1,0 +1,8 @@
+{{define "content"}}
+<form method="post" action="/forms/{{.Data.ID}}/delete" class="card narrow">
+  <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+  <p>Usunięcie formularza <code>{{.Data.ID}}</code> skasuje też <b>wszystkie jego zgłoszenia</b> i kolejkę maili. Tej operacji nie można cofnąć.</p>
+  <label>Wpisz <code>{{.Data.ID}}</code>, aby potwierdzić <input name="confirm" autocomplete="off" required></label>
+  <button class="danger">Usuń na zawsze</button>
+</form>
+{{end}}

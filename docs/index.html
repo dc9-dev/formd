@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>formd — backend formularzy dla stron statycznych</title>
+<meta name="description" content="Samodzielny backend formularzy dla stron statycznych: jedna binarka w Go, SQLite, SMTP/SES, panel konfiguracyjny i ochrona przed masową wysyłką bez zewnętrznej captchy.">
+<meta property="og:title" content="formd — backend formularzy dla stron statycznych">
+<meta property="og:description" content="Jedna binarka w Go na Twoim serwerze. Formularze, zapis do SQLite, maile przez SMTP/SES, proof-of-work zamiast captchy.">
+<meta property="og:image" content="https://dc9-dev.github.io/formd/assets/formd-github-social.png">
+<meta property="og:url" content="https://dc9-dev.github.io/formd/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/formd-icon-32.png">
+<link rel="apple-touch-icon" href="assets/formd-icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0b1633;--navy-2:#101f45;--blue:#1449f5;--blue-soft:#c3d0f2;
+  --ink:#0f172a;--muted:#5b6478;--line:#e2e7f0;--bg:#f6f8fc;--card:#fff;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font:16px/1.65 Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+a{color:var(--blue)}
+code,pre{font-family:var(--mono)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+/* hero */
+.hero{background:var(--navy);color:#fff;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background:
+  linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/56px 56px,
+  linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/56px 56px;
+  mask-image:radial-gradient(ellipse at 70% 40%,#000 20%,transparent 75%)}
+.nav{position:relative;display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font-weight:700;font-size:24px;letter-spacing:-.02em}
+.brand img{display:block}
+.nav a.gh{color:#dbe4ff;text-decoration:none;font-weight:500;font-size:15px;display:flex;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.18);padding:7px 14px;border-radius:8px}
+.nav a.gh:hover{border-color:rgba(255,255,255,.4)}
+.hero-grid>*,.split>*{min-width:0}
+.hero-grid{position:relative;display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center;padding:56px 0 88px}
+.eyebrow{display:inline-block;font:500 13px/1 var(--mono);letter-spacing:.04em;color:var(--blue-soft);background:rgba(20,73,245,.18);border:1px solid rgba(20,73,245,.45);padding:7px 10px;border-radius:6px}
+h1{font-size:clamp(34px,5vw,52px);line-height:1.08;letter-spacing:-.02em;margin:18px 0 18px;font-weight:700;text-wrap:balance}
+h1 em{font-style:normal;color:#7ea0ff}
+.lead{font-size:18px;color:#c9d3ea;max-width:34em;margin:0 0 30px}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:9px;font-weight:600;text-decoration:none;font-size:15px}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{background:#2b5cff}
+.btn.ghost{color:#fff;border:1px solid rgba(255,255,255,.25)}
+.btn.ghost:hover{border-color:rgba(255,255,255,.5)}
+.term{background:#060d22;border:1px solid rgba(255,255,255,.1);border-radius:12px;box-shadow:0 30px 60px -20px rgba(0,0,0,.6);overflow:hidden}
+.term-bar{display:flex;gap:6px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.term-bar i{width:10px;height:10px;border-radius:50%;background:#26324f}
+.term pre{margin:0;padding:18px 20px;font-size:13.5px;line-height:1.75;color:#d6def5;overflow-x:auto}
+.term .c{color:#6f7ea6}.term .p{color:#7ea0ff}.term .ok{color:#6ee7a8}
+
+/* sections */
+section{padding:84px 0}
+.kicker{font:600 13px/1 var(--mono);color:var(--blue);letter-spacing:.06em;text-transform:uppercase}
+h2{font-size:clamp(26px,3.4vw,34px);line-height:1.2;letter-spacing:-.015em;margin:12px 0 14px;text-wrap:balance}
+.sub{color:var(--muted);max-width:40em;margin:0 0 40px;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+.card h3{font-size:17px;margin:14px 0 6px}
+.card p{margin:0;color:var(--muted);font-size:15px}
+.ico{width:40px;height:40px;border-radius:10px;background:#eaf0ff;color:var(--blue);display:grid;place-items:center}
+.ico svg{width:22px;height:22px}
+
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;counter-reset:s;margin-top:10px}
+.step{position:relative;padding:0 18px 0 0}
+.step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;font:600 14px var(--mono);margin-bottom:14px;position:relative;z-index:1}
+.step::after{content:"";position:absolute;top:17px;left:34px;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--blue-soft))}
+.step:last-child::after{display:none}
+.step h3{margin:0 0 6px;font-size:16px}
+.step p{margin:0;color:var(--muted);font-size:14.5px}
+
+.dark{background:var(--navy);color:#fff}
+.dark .sub{color:#b6c2de}
+.dark .kicker{color:#7ea0ff}
+.layers{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.layer{display:flex;gap:16px;background:var(--navy-2);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:20px}
+.layer b{display:block;margin-bottom:4px}
+.layer p{margin:0;color:#b6c2de;font-size:14.5px}
+.layer .n{flex:none;font:600 13px var(--mono);color:#7ea0ff;padding-top:2px}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+.code{background:var(--navy);color:#d6def5;border-radius:12px;padding:20px 22px;font-size:13.5px;line-height:1.7;overflow-x:auto;margin:0}
+.code .c{color:#6f7ea6}.code .t{color:#7ea0ff}.code .s{color:#9fe0c0}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:15px}
+td,th{padding:12px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#eef2fa;font-weight:600;font-size:14px}
+td code{font-size:13px;background:#eef2fa;padding:2px 6px;border-radius:5px}
+tr:last-child td{border-bottom:0}
+
+footer{border-top:1px solid var(--line);padding:32px 0;color:var(--muted);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center}
+footer img{height:26px;width:auto;display:block}
+
+@media (max-width:860px){
+  .hero-grid,.split{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr 1fr}
+  .flow{grid-template-columns:1fr 1fr;row-gap:30px}
+  .step:nth-child(2)::after{display:none}
+  .layers{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  .grid,.flow{grid-template-columns:1fr}
+  .step::after{display:none}
+  section{padding:64px 0}
+  .hero-grid{padding:32px 0 64px}
+  .nav a.gh span{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <nav class="nav">
+      <a class="brand" href="./"><img src="assets/formd-icon-128.png" alt="" width="34" height="34">formd</a>
+      <a class="gh" href="https://github.com/dc9-dev/formd">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>GitHub</span>
+      </a>
+    </nav>
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow">Go · SQLite · SMTP / SES</span>
+        <h1>Formularze dla stron statycznych, <em>na Twoim serwerze</em>.</h1>
+        <p class="lead">Jedna mała binarka obok strony. Przyjmuje formularz, waliduje, zapisuje do bazy i wysyła maile. Bez SaaS-ów, bez captchy od firm trzecich i bez wypuszczania danych poza serwer.</p>
+        <div class="cta">
+          <a class="btn primary" href="#start">Szybki start</a>
+          <a class="btn ghost" href="https://github.com/dc9-dev/formd">Kod źródłowy</a>
+        </div>
+      </div>
+      <div class="term" aria-label="Przykładowa sesja w terminalu">
+        <div class="term-bar"><i></i><i></i><i></i></div>
+<pre><span class="c"># instalacja i pierwszy użytkownik panelu</span>
+<span class="p">$</span> go install github.com/dc9-dev/formd/cmd/formd@latest
+<span class="p">$</span> formd user add admin
+<span class="ok">ok</span>
+<span class="p">$</span> formd serve
+level=INFO msg=listening addr=127.0.0.1:8025
+level=INFO msg=listening addr=127.0.0.1:8026
+<span class="c"># formularz wysłany ze strony</span>
+level=INFO msg="submission accepted" form=kontakt mails=2
+level=WARN msg="formd rejected" reason=rate_limit</pre>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+<section>
+  <div class="wrap">
+    <span class="kicker">Po co</span>
+    <h2>Strona statyczna zostaje statyczna</h2>
+    <p class="sub">Statyczny HTML to najmniejsza powierzchnia ataku. Formularz kontaktowy nie powinien wymuszać CMS-a ani płatnej usługi, która przechowuje dane Twoich klientów.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg></div>
+        <h3>Wiele formularzy</h3>
+        <p>Kontakt, feedback, zapisy. Każdy formularz ma własne pola, originy, odbiorców, szablony maili i limity.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l8 6 8-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg></div>
+        <h3>Powiadomienia i potwierdzenia</h3>
+        <p>Mail do Ciebie z Reply-To na nadawcę i opcjonalne potwierdzenie dla wysyłającego. Wysyłka przez SMTP albo Amazon SES API.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+        <h3>Nic nie ginie</h3>
+        <p>Zgłoszenie i maile zapisują się w jednej transakcji SQLite. Gdy SMTP nie działa, kolejka ponawia wysyłkę do 24 h.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></div>
+        <h3>Panel konfiguracyjny</h3>
+        <p>Pola, limity i szablony ustawiasz w przeglądarce, a zmiany działają od razu. Masz też podgląd zgłoszeń, eksport CSV i dziennik zdarzeń.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div>
+        <h3>Captcha bez firm trzecich</h3>
+        <p>Podpisany, jednorazowy token i proof-of-work liczony w przeglądarce. Dla człowieka niewidoczne, dla bota drogie.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+        <h3>Jedna binarka</h3>
+        <p>Statycznie linkowana, bez CGO. Unit systemd z pełnym utwardzeniem w repozytorium. Retencja danych w dniach.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <span class="kicker">Jak to działa</span>
+    <h2>Od kliknięcia do skrzynki</h2>
+    <p class="sub">formd słucha tylko na 127.0.0.1. Ze światem łączy go istniejący nginx lub Caddy, który przekazuje wyłącznie ścieżkę <code>/f/</code>.</p>
+    <div class="flow">
+      <div class="step"><h3>Challenge</h3><p><code>formd.js</code> pobiera przy wejściu na stronę token podpisany HMAC.</p></div>
+      <div class="step"><h3>Proof-of-work</h3><p>Przy wysyłce przeglądarka liczy SHA-256 do zadanej trudności, np. 16 bitów.</p></div>
+      <div class="step"><h3>Walidacja</h3><p>Serwer sprawdza: origin, limity, pola, token, czas wypełnienia, honeypot i duplikaty.</p></div>
+      <div class="step"><h3>Zapis i wysyłka</h3><p>SQLite i kolejka maili w jednej transakcji, potem SMTP lub SES z ponawianiem.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="dark">
+  <div class="wrap">
+    <span class="kicker">Bezpieczeństwo</span>
+    <h2>Zaprojektowane pod atak, nie pod demo</h2>
+    <p class="sub">Formularz to jedyny punkt, w którym obcy mogą coś zapisać na Twoim serwerze. Każda warstwa zakłada, że poprzednia zawiodła.</p>
+    <div class="layers">
+      <div class="layer"><span class="n">01</span><div><b>Sieć</b><p>Nasłuch tylko na konkretnym IP, a <code>0.0.0.0</code> jest odrzucane. Allowlista IP działa przed routingiem. <code>X-Forwarded-For</code> jest honorowany tylko od zaufanego proxy.</p></div></div>
+      <div class="layer"><span class="n">02</span><div><b>Panel</b><p>Osobny port dostępny przez tunel SSH. argon2id, hash tokenu sesji w bazie, CSRF, <code>SameSite=Strict</code>, ochrona przed DNS rebinding, ścisły CSP i zero JS.</p></div></div>
+      <div class="layer"><span class="n">03</span><div><b>Dane wejściowe</b><p>Nieznane pola są odrzucane. Zakazane są znaki sterujące, znaki bidi i CR/LF w polach jednowierszowych. Obowiązuje limit body i nie ma uploadu plików.</p></div></div>
+      <div class="layer"><span class="n">04</span><div><b>Poczta</b><p>Bez header injection, temat zawsze w jednej linii, HTML escapowany. STARTTLS jest wymagany i nie ma cichego downgrade'u.</p></div></div>
+      <div class="layer"><span class="n">05</span><div><b>Masowa wysyłka</b><p>Limity per IP, per formularz i globalne, limit maili na godzinę oraz limit potwierdzeń na adres na dobę. Spam dostaje udawany sukces.</p></div></div>
+      <div class="layer"><span class="n">06</span><div><b>Proces i dane</b><p>systemd z filtrem syscalli i bez capabilities. Pliki bazy z prawami 0600. Eksport CSV odporny na formula injection. Pełny dziennik audytowy.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <span class="kicker">Szybki start</span>
+    <h2>Pięć minut do działającego formularza</h2>
+    <p class="sub">Zbuduj, utwórz konto, uruchom. Resztę ustawisz w panelu.</p>
+    <div class="split">
+<pre class="code"><span class="c"># 1. instalacja</span>
+go install github.com/dc9-dev/formd/cmd/formd@latest
+cp .env.example .env        <span class="c"># MAILER=log na początek</span>
+
+<span class="c"># 2. konto do panelu</span>
+formd user add admin
+
+<span class="c"># 3. start</span>
+formd serve
+
+<span class="c"># 4. panel na serwerze zdalnym</span>
+ssh -L 8026:127.0.0.1:8026 serwer
+<span class="c"># → http://localhost:8026</span></pre>
+<pre class="code"><span class="c">&lt;!-- 5. na stronie --&gt;</span>
+<span class="t">&lt;form</span> action=<span class="s">"/f/kontakt"</span> method=<span class="s">"post"</span>
+      data-formd=<span class="s">"ajax"</span><span class="t">&gt;</span>
+  <span class="t">&lt;input</span> name=<span class="s">"name"</span> required<span class="t">&gt;</span>
+  <span class="t">&lt;input</span> type=<span class="s">"email"</span> name=<span class="s">"email"</span> required<span class="t">&gt;</span>
+  <span class="t">&lt;textarea</span> name=<span class="s">"message"</span> required<span class="t">&gt;&lt;/textarea&gt;</span>
+  <span class="c">&lt;!-- honeypot, ukryty CSS-em --&gt;</span>
+  <span class="t">&lt;input</span> name=<span class="s">"website"</span> class=<span class="s">"hp"</span> tabindex=<span class="s">"-1"</span><span class="t">&gt;</span>
+  <span class="t">&lt;button&gt;</span>Wyślij<span class="t">&lt;/button&gt;</span>
+  <span class="t">&lt;p</span> data-formd-status<span class="t">&gt;&lt;/p&gt;</span>
+<span class="t">&lt;/form&gt;</span>
+<span class="t">&lt;script</span> src=<span class="s">"/f/formd.js"</span> defer<span class="t">&gt;&lt;/script&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <span class="kicker">Wysyłka</span>
+    <h2>Twój serwer pocztowy, Twoje klucze</h2>
+    <p class="sub">Sposób wysyłki wybierasz jedną zmienną w <code>.env</code>. Sekrety nie trafiają do panelu ani do bazy.</p>
+    <table>
+      <thead><tr><th><code>MAILER</code></th><th>Konfiguracja</th><th>Zastosowanie</th></tr></thead>
+      <tbody>
+        <tr><td><code>smtp</code></td><td><code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>SMTP_TLS</code></td><td>SES SMTP, Postfix, Mailgun, dowolny serwer SMTP</td></tr>
+        <tr><td><code>ses</code></td><td><code>AWS_REGION</code> + poświadczenia AWS lub rola IAM</td><td>Amazon SES API v2, bez haseł SMTP</td></tr>
+        <tr><td><code>log</code></td><td>brak</td><td>Rozwój i testy: maile trafiają tylko do logów</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="assets/formd-logo-light.webp" alt="formd" width="78" height="26">
+    <span><a href="https://github.com/dc9-dev/formd">github.com/dc9-dev/formd</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

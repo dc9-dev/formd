@@ -1,0 +1,8 @@
+{{define "content"}}
+<form method="post" action="/login" class="card narrow">
+  <label>Login <input name="username" autocomplete="username" required maxlength="64" autofocus></label>
+  <label>Hasło <input type="password" name="password" autocomplete="current-password" required maxlength="1024"></label>
+  <button>Zaloguj</button>
+</form>
+<p class="muted">Konta tworzy się z linii poleceń: <code>formd user add &lt;login&gt;</code></p>
+{{end}}

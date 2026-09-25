@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{{.Title}} · formd</title>
+<link rel="icon" href="/static/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><img src="/static/formd-icon-64.png" alt="" width="28" height="28"> formd</a>
+  {{if .Session}}
+  <nav>
+    <a href="/">Formularze</a>
+    <a href="/outbox">Kolejka maili</a>
+    <a href="/audit">Dziennik</a>
+    <a href="/account">Konto ({{.Session.Username}})</a>
+    <form method="post" action="/logout" class="inline">
+      <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+      <button class="link">Wyloguj</button>
+    </form>
+  </nav>
+  {{end}}
+</header>
+<main>
+  <h1>{{.Title}}</h1>
+  {{if .Flash}}<p class="flash">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+  {{if .Errors}}<ul class="error">{{range .Errors}}<li>{{.}}</li>{{end}}</ul>{{end}}
+  {{template "content" .}}
+</main>
+</body>
+</html>

@@ -1,0 +1,49 @@
+[Unit]
+Description=formd - backend formularzy dla stron statycznych
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=formd
+Group=formd
+ExecStart=/usr/local/bin/formd -env /etc/formd/formd.env serve
+Restart=on-failure
+RestartSec=3
+
+StateDirectory=formd
+StateDirectoryMode=0700
+UMask=0077
+
+# Utwardzenie
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+ReadWritePaths=/var/lib/formd
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

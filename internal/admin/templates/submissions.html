@@ -1,0 +1,17 @@
+{{define "content"}}
+{{$d := .Data.Def}}{{$csrf := .Session.CSRF}}
+<p><a href="/forms/{{$d.ID}}">← konfiguracja</a> · <a href="/forms/{{$d.ID}}/export.csv">Eksport CSV</a></p>
+{{if .Data.Subs}}
+{{range .Data.Subs}}{{$s := .}}
+<article class="card sub">
+  <header><b>{{time .CreatedAt}}</b> <span class="muted">IP {{.IP}} · {{.ID}}</span>
+    <form method="post" action="/forms/{{$d.ID}}/submissions/{{.ID}}/delete" class="inline right">
+      <input type="hidden" name="csrf" value="{{$csrf}}"><button class="link danger">usuń</button>
+    </form>
+  </header>
+  <dl>{{range $d.Fields}}<dt>{{.Label}}</dt><dd>{{index $s.Data .Name}}</dd>{{end}}</dl>
+</article>
+{{end}}
+<p>{{if .Data.Page}}<a href="?page={{add .Data.Page -1}}">← nowsze</a>{{end}} {{if .Data.More}}<a href="?page={{add .Data.Page 1}}">starsze →</a>{{end}}</p>
+{{else}}<p>Brak zgłoszeń.</p>{{end}}
+{{end}}

@@ -1,0 +1,10 @@
+{{define "content"}}
+<form method="post" action="/forms/new" class="card narrow">
+  <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+  <label>Identyfikator (w adresie /f/…) <input name="id" value="{{index .Data "id"}}" pattern="[a-z0-9][a-z0-9_\-]{0,63}" required maxlength="64" placeholder="kontakt"></label>
+  <label>Nazwa <input name="title" value="{{index .Data "title"}}" maxlength="200" placeholder="Formularz kontaktowy"></label>
+  <label>Strona (origin) <input name="origin" value="{{index .Data "origin"}}" required placeholder="https://example.com"></label>
+  <p class="muted">Formularz powstanie wyłączony, z bezpiecznymi ustawieniami domyślnymi (challenge + PoW, limity, honeypot).</p>
+  <button>Utwórz</button>
+</form>
+{{end}}

@@ -1,0 +1,14 @@
+example.com {
+    root * /var/www/example.com
+    file_server
+
+    # Tylko endpointy formularzy; panel admina zostaje na 127.0.0.1:8026.
+    handle /f/* {
+        request_body {
+            max_size 64KB
+        }
+        reverse_proxy 127.0.0.1:8025 {
+            header_up X-Real-IP {remote_host}
+        }
+    }
+}

@@ -1,0 +1,8 @@
+/formd
+/dist/
+*.db
+*.db-wal
+*.db-shm
+.env
+.claude/
+graft/
