@@ -1,25 +1,42 @@
+{{define "actions"}}<a class="btn primary" href="/forms/new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nowy formularz</a>{{end}}
 {{define "content"}}
 {{with .Data}}
-<p class="muted">Wysyłka: <b>{{.Mailer}}</b>{{if .Failed}} · <a class="warn" href="/outbox?status=failed">{{.Failed}} nieudanych maili</a>{{end}}</p>
-<p><a class="button" href="/forms/new">+ Nowy formularz</a></p>
+<div class="stats">
+  <div class="stat"><span>Formularze</span><b>{{len .Forms}}</b><small>{{.Live}} aktywnych</small></div>
+  <div class="stat"><span>Zgłoszenia</span><b>{{.Total}}</b><small>łącznie w bazie</small></div>
+  <div class="stat {{if .Failed}}alert{{end}}"><span>Nieudane maile</span><b>{{.Failed}}</b><small>{{if .Failed}}<a href="/outbox?status=failed">sprawdź kolejkę →</a>{{else}}wysyłka: {{.Mailer}}{{end}}</small></div>
+</div>
+
 {{if .Forms}}
-<table>
-<thead><tr><th>ID</th><th>Nazwa</th><th>Status</th><th>Ochrona</th><th>Zgłoszenia</th><th></th></tr></thead>
-<tbody>
+<div class="cards">
 {{range .Forms}}
-<tr>
-  <td><code>{{.Def.ID}}</code></td>
-  <td>{{.Def.Title}}</td>
-  <td>{{if .Live}}<span class="ok">aktywny</span>{{else}}<span class="muted">wyłączony</span>{{end}}</td>
-  <td>{{if .Def.Challenge}}challenge{{if .Def.PowBits}} + PoW {{.Def.PowBits}}b{{end}}{{else}}<span class="warn">bez challenge</span>{{end}}</td>
-  <td><a href="/forms/{{.Def.ID}}/submissions">{{.Count}}</a></td>
-  <td class="actions"><a href="/forms/{{.Def.ID}}">Konfiguracja</a> · <a href="/forms/{{.Def.ID}}/snippet">Kod HTML</a></td>
-</tr>
+  <article class="form-card">
+    <div class="fc-top">
+      <div>
+        <h2><a href="/forms/{{.Def.ID}}">{{.Def.Title}}</a></h2>
+        <code class="muted">/f/{{.Def.ID}}</code>
+      </div>
+      {{if .Live}}<span class="pill green">aktywny</span>{{else}}<span class="pill">wyłączony</span>{{end}}
+    </div>
+    <div class="chips">
+      {{if .Def.Challenge}}<span class="chip">challenge{{if .Def.PowBits}} · PoW {{.Def.PowBits}}b{{end}}</span>{{else}}<span class="chip warn">bez challenge</span>{{end}}
+      {{if .Def.RatePerIP}}<span class="chip">{{.Def.RatePerIP}}/{{.Def.RateWindowMin}} min per IP</span>{{end}}
+      {{if .Def.ConfirmEnabled}}<span class="chip">potwierdzenia</span>{{end}}
+    </div>
+    <div class="fc-foot">
+      <a class="count" href="/forms/{{.Def.ID}}/submissions"><b>{{.Count}}</b> zgłoszeń</a>
+      <span class="links"><a href="/forms/{{.Def.ID}}/snippet">Kod HTML</a><a href="/forms/{{.Def.ID}}">Ustawienia</a></span>
+    </div>
+  </article>
 {{end}}
-</tbody>
-</table>
+</div>
 {{else}}
-<p>Brak formularzy.</p>
+<div class="empty">
+  <img src="/static/formd-icon-128.png" alt="" width="64" height="64">
+  <h2>Nie masz jeszcze formularzy</h2>
+  <p>Utwórz pierwszy — dostanie bezpieczne ustawienia domyślne.</p>
+  <a class="btn primary" href="/forms/new">Nowy formularz</a>
+</div>
 {{end}}
 {{end}}
 {{end}}

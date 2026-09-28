@@ -1,16 +1,26 @@
 {{define "content"}}
-{{$csrf := .Session.CSRF}}
-<p>Filtr: <a href="/outbox">wszystkie</a> · <a href="/outbox?status=pending">oczekujące</a> · <a href="/outbox?status=sent">wysłane</a> · <a href="/outbox?status=failed">nieudane</a></p>
+{{$csrf := .Session.CSRF}}{{$st := .Data.Status}}
+<nav class="tabs">
+  <a href="/outbox" {{if eq $st ""}}class="on"{{end}}>Wszystkie</a>
+  <a href="/outbox?status=pending" {{if eq $st "pending"}}class="on"{{end}}>Oczekujące</a>
+  <a href="/outbox?status=sent" {{if eq $st "sent"}}class="on"{{end}}>Wysłane</a>
+  <a href="/outbox?status=failed" {{if eq $st "failed"}}class="on"{{end}}>Nieudane</a>
+</nav>
+<div class="panel flush">
 <table>
-<thead><tr><th>#</th><th>Utworzono</th><th>Formularz</th><th>Rodzaj</th><th>Do</th><th>Temat</th><th>Status</th><th>Próby</th><th>Błąd</th><th></th></tr></thead>
+<thead><tr><th>Utworzono</th><th>Formularz</th><th>Do</th><th>Temat</th><th>Status</th><th></th></tr></thead>
 <tbody>
 {{range .Data.Items}}
 <tr>
-  <td>{{.ID}}</td><td>{{time .CreatedAt}}</td><td>{{.FormID}}</td><td>{{.Kind}}</td><td>{{.To}}</td><td>{{.Subject}}</td>
-  <td class="st-{{.Status}}">{{.Status}}</td><td>{{.Attempts}}</td><td class="muted">{{.LastError}}</td>
-  <td>{{if eq .Status "failed"}}<form method="post" action="/outbox/{{.ID}}/retry" class="inline"><input type="hidden" name="csrf" value="{{$csrf}}"><button class="link">ponów</button></form>{{end}}</td>
+  <td class="nowrap">{{time .CreatedAt}}</td>
+  <td><code>{{.FormID}}</code> <span class="muted">{{.Kind}}</span></td>
+  <td>{{.To}}</td>
+  <td>{{.Subject}}{{if .LastError}}<div class="err-line">{{.LastError}}</div>{{end}}</td>
+  <td><span class="pill {{if eq .Status "sent"}}green{{else if eq .Status "failed"}}red{{else}}blue{{end}}">{{.Status}}</span>{{if .Attempts}} <span class="muted">×{{.Attempts}}</span>{{end}}</td>
+  <td>{{if eq .Status "failed"}}<form method="post" action="/outbox/{{.ID}}/retry"><input type="hidden" name="csrf" value="{{$csrf}}"><button class="btn small">Ponów</button></form>{{end}}</td>
 </tr>
-{{else}}<tr><td colspan="10">Pusto.</td></tr>{{end}}
+{{else}}<tr><td colspan="6" class="muted center">Pusto.</td></tr>{{end}}
 </tbody>
 </table>
+</div>
 {{end}}

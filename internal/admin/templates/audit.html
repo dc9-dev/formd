@@ -1,9 +1,11 @@
 {{define "content"}}
+<div class="panel flush">
 <table>
-<thead><tr><th>Czas</th><th>Użytkownik</th><th>IP</th><th>Akcja</th><th>Szczegóły</th></tr></thead>
+<thead><tr><th>Czas</th><th>Użytkownik</th><th>Akcja</th><th>Szczegóły</th><th>IP</th></tr></thead>
 <tbody>
-{{range .Data}}<tr><td>{{time .TS}}</td><td>{{.Username}}</td><td>{{.IP}}</td><td>{{.Action}}</td><td class="muted">{{.Detail}}</td></tr>
-{{else}}<tr><td colspan="5">Pusto.</td></tr>{{end}}
+{{range .Data}}<tr><td class="nowrap">{{time .TS}}</td><td>{{.Username}}</td><td><span class="pill {{if or (eq .Action "login_failed") (eq .Action "csrf_failed") (eq .Action "login_throttled")}}red{{end}}">{{.Action}}</span></td><td class="muted">{{.Detail}}</td><td class="muted">{{.IP}}</td></tr>
+{{else}}<tr><td colspan="5" class="muted center">Pusto.</td></tr>{{end}}
 </tbody>
 </table>
+</div>
 {{end}}

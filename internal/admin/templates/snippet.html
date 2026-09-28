@@ -1,5 +1,8 @@
+{{define "crumbs"}}<a class="crumb" href="/forms/{{.Data.Def.ID}}">← {{.Data.Def.Title}}</a>{{end}}
 {{define "content"}}
-<p>Wklej do strony statycznej. Adres <code>/f/…</code> musi być przekazywany przez reverse proxy do formd.</p>
-<pre class="code">{{.Data.HTML}}</pre>
-<p class="muted">Bez JavaScriptu formularz z włączonym challenge nie przejdzie weryfikacji — to celowe. Wariant <code>data-formd="ajax"</code> wysyła przez fetch i pokazuje wynik w elemencie <code>[data-formd-status]</code>.</p>
+<section class="panel">
+  <p class="hint">Wklej do strony statycznej. Ścieżka <code>/f/</code> musi być przekazywana przez reverse proxy do formd.</p>
+  <pre class="code">{{.Data.HTML}}</pre>
+  <p class="hint">Bez JavaScriptu formularz z włączonym challenge nie przejdzie weryfikacji — to celowe. Wariant <code>data-formd="ajax"</code> wysyła przez fetch i pokazuje wynik w <code>[data-formd-status]</code>.</p>
+</section>
 {{end}}

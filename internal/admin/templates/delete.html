@@ -1,8 +1,9 @@
+{{define "crumbs"}}<a class="crumb" href="/forms/{{.Data.ID}}">← {{.Data.Title}}</a>{{end}}
 {{define "content"}}
-<form method="post" action="/forms/{{.Data.ID}}/delete" class="card narrow">
+<form method="post" action="/forms/{{.Data.ID}}/delete" class="panel narrow stack">
   <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
-  <p>Usunięcie formularza <code>{{.Data.ID}}</code> skasuje też <b>wszystkie jego zgłoszenia</b> i kolejkę maili. Tej operacji nie można cofnąć.</p>
-  <label>Wpisz <code>{{.Data.ID}}</code>, aby potwierdzić <input name="confirm" autocomplete="off" required></label>
-  <button class="danger">Usuń na zawsze</button>
+  <p>Usunięcie formularza <code>{{.Data.ID}}</code> skasuje też <b>wszystkie jego zgłoszenia</b> i kolejkę maili. Tego nie da się cofnąć.</p>
+  <label class="field">Wpisz <code>{{.Data.ID}}</code>, aby potwierdzić<input name="confirm" autocomplete="off" required></label>
+  <div><button class="btn danger">Usuń na zawsze</button></div>
 </form>
 {{end}}

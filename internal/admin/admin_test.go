@@ -146,6 +146,13 @@ func TestLoginThrottleAndCSRF(t *testing.T) {
 	if w := c.req("POST", "/forms/new", create, map[string]string{"Origin": "https://evil.com"}); w.Code != 403 {
 		t.Fatalf("foreign origin: %d", w.Code)
 	}
+	if w := c.req("POST", "/forms/new", create, map[string]string{"Origin": "null"}); w.Code != 403 {
+		t.Fatalf("opaque origin without Sec-Fetch-Site: %d", w.Code)
+	}
+	if w := c.req("POST", "/forms/new", create, map[string]string{"Origin": "null", "Sec-Fetch-Site": "same-origin"}); w.Code != 303 {
+		t.Fatalf("opaque origin, same-origin fetch: %d %s", w.Code, w.Body)
+	}
+	create.Set("id", "kontakt2")
 	if w := c.req("POST", "/forms/new", create, map[string]string{"Origin": "http://localhost:8026", "Sec-Fetch-Site": "same-origin"}); w.Code != 303 {
 		t.Fatalf("create: %d %s", w.Code, w.Body)
 	}

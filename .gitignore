@@ -6,3 +6,4 @@
 .env
 .claude/
 graft/
+.ignore

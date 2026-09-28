@@ -1,10 +1,13 @@
+{{define "crumbs"}}<a class="crumb" href="/">← Formularze</a>{{end}}
 {{define "content"}}
-<form method="post" action="/forms/new" class="card narrow">
+<form method="post" action="/forms/new" class="panel narrow stack">
   <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
-  <label>Identyfikator (w adresie /f/…) <input name="id" value="{{index .Data "id"}}" pattern="[a-z0-9][a-z0-9_\-]{0,63}" required maxlength="64" placeholder="kontakt"></label>
-  <label>Nazwa <input name="title" value="{{index .Data "title"}}" maxlength="200" placeholder="Formularz kontaktowy"></label>
-  <label>Strona (origin) <input name="origin" value="{{index .Data "origin"}}" required placeholder="https://example.com"></label>
-  <p class="muted">Formularz powstanie wyłączony, z bezpiecznymi ustawieniami domyślnymi (challenge + PoW, limity, honeypot).</p>
-  <button>Utwórz</button>
+  <label class="field">Identyfikator<small>Pojawi się w adresie <code>/f/…</code>. Małe litery, cyfry, - i _.</small>
+    <input name="id" value="{{index .Data "id"}}" pattern="[a-z0-9][a-z0-9_\-]{0,63}" required maxlength="64" placeholder="kontakt"></label>
+  <label class="field">Nazwa<input name="title" value="{{index .Data "title"}}" maxlength="200" placeholder="Formularz kontaktowy"></label>
+  <label class="field">Strona (origin)<small>Adres strony, z której będzie wysyłany formularz.</small>
+    <input name="origin" value="{{index .Data "origin"}}" required placeholder="https://example.com"></label>
+  <p class="hint">Formularz powstanie wyłączony, z bezpiecznymi ustawieniami domyślnymi: challenge z proof-of-work, limity i honeypot.</p>
+  <div><button class="btn primary">Utwórz formularz</button></div>
 </form>
 {{end}}

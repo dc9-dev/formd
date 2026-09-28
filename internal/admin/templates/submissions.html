@@ -1,17 +1,24 @@
+{{define "crumbs"}}<a class="crumb" href="/forms/{{.Data.Def.ID}}">← {{.Data.Def.Title}}</a>{{end}}
+{{define "actions"}}<a class="btn" href="/forms/{{.Data.Def.ID}}/export.csv"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Eksport CSV</a>{{end}}
 {{define "content"}}
 {{$d := .Data.Def}}{{$csrf := .Session.CSRF}}
-<p><a href="/forms/{{$d.ID}}">← konfiguracja</a> · <a href="/forms/{{$d.ID}}/export.csv">Eksport CSV</a></p>
 {{if .Data.Subs}}
+<div class="subs">
 {{range .Data.Subs}}{{$s := .}}
-<article class="card sub">
-  <header><b>{{time .CreatedAt}}</b> <span class="muted">IP {{.IP}} · {{.ID}}</span>
-    <form method="post" action="/forms/{{$d.ID}}/submissions/{{.ID}}/delete" class="inline right">
-      <input type="hidden" name="csrf" value="{{$csrf}}"><button class="link danger">usuń</button>
+<article class="panel sub">
+  <header>
+    <b>{{time .CreatedAt}}</b>
+    <span class="muted">IP {{.IP}}</span>
+    <form method="post" action="/forms/{{$d.ID}}/submissions/{{.ID}}/delete">
+      <input type="hidden" name="csrf" value="{{$csrf}}"><button class="danger-link">Usuń</button>
     </form>
   </header>
   <dl>{{range $d.Fields}}<dt>{{.Label}}</dt><dd>{{index $s.Data .Name}}</dd>{{end}}</dl>
 </article>
 {{end}}
-<p>{{if .Data.Page}}<a href="?page={{add .Data.Page -1}}">← nowsze</a>{{end}} {{if .Data.More}}<a href="?page={{add .Data.Page 1}}">starsze →</a>{{end}}</p>
-{{else}}<p>Brak zgłoszeń.</p>{{end}}
+</div>
+<nav class="pager">{{if .Data.Page}}<a class="btn" href="?page={{add .Data.Page -1}}">← Nowsze</a>{{end}}{{if .Data.More}}<a class="btn" href="?page={{add .Data.Page 1}}">Starsze →</a>{{end}}</nav>
+{{else}}
+<div class="empty"><h2>Brak zgłoszeń</h2><p>Gdy ktoś wyśle formularz, zobaczysz je tutaj.</p></div>
+{{end}}
 {{end}}

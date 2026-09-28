@@ -54,6 +54,12 @@ func New(cfg *config.Config, st *store.Store, reg *forms.Registry, log *slog.Log
 		"time":  func(t time.Time) string { return t.Local().Format("2006-01-02 15:04") },
 		"lines": func(v []string) string { return strings.Join(v, "\n") },
 		"add":   func(a, b int) int { return a + b },
+		"initial": func(s string) string {
+			for _, r := range s {
+				return strings.ToUpper(string(r))
+			}
+			return "?"
+		},
 	}
 	names, err := fs.Glob(templateFS, "templates/*.html")
 	if err != nil {
@@ -114,7 +120,9 @@ func headers(next http.Handler) http.Handler {
 		h.Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Referrer-Policy", "no-referrer")
+		// same-origin, not no-referrer: with no-referrer some browsers send
+		// "Origin: null" on form POSTs, which breaks the same-origin check.
+		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Cache-Control", "no-store")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
@@ -151,19 +159,36 @@ func (a *Admin) sameOrigin(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" {
-			http.Error(w, "cross-site request refused", http.StatusForbidden)
+		site := r.Header.Get("Sec-Fetch-Site")
+		if site != "" && site != "same-origin" {
+			a.refuse(w, r, "cross-site request refused")
 			return
 		}
-		if o := r.Header.Get("Origin"); o != "" {
+		switch o := r.Header.Get("Origin"); o {
+		case "":
+		case "null":
+			// Opaque origin (privacy settings, referrer policy). Accept only
+			// when the browser itself vouches for a same-origin request.
+			if site != "same-origin" {
+				a.refuse(w, r, "cross-origin request refused")
+				return
+			}
+		default:
 			u, err := url.Parse(o)
 			if err != nil || !strings.EqualFold(u.Host, r.Host) {
-				http.Error(w, "cross-origin request refused", http.StatusForbidden)
+				a.refuse(w, r, "cross-origin request refused")
 				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (a *Admin) refuse(w http.ResponseWriter, r *http.Request, msg string) {
+	a.Log.Warn("admin request refused", "reason", msg, "path", r.URL.Path,
+		"origin", forms.CleanHeader(r.Header.Get("Origin"), 200), "host", forms.CleanHeader(r.Host, 200),
+		"sec_fetch_site", r.Header.Get("Sec-Fetch-Site"))
+	http.Error(w, msg, http.StatusForbidden)
 }
 
 func (a *Admin) auth(h handler) http.Handler {
@@ -233,6 +258,7 @@ func (a *Admin) audit(r *http.Request, user, action, detail string) {
 
 // view is the data passed to every template.
 type view struct {
+	Nav     string // active sidebar entry, derived from the path
 	Title   string
 	Session *store.Session
 	Flash   string
@@ -257,6 +283,16 @@ func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page 
 	}
 	if v.Flash == "" {
 		v.Flash = flashes[r.URL.Query().Get("ok")]
+	}
+	switch p := r.URL.Path; {
+	case strings.HasPrefix(p, "/outbox"):
+		v.Nav = "outbox"
+	case strings.HasPrefix(p, "/audit"):
+		v.Nav = "audit"
+	case strings.HasPrefix(p, "/account"):
+		v.Nav = "account"
+	default:
+		v.Nav = "forms"
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)

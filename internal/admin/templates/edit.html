@@ -1,69 +1,92 @@
+{{define "crumbs"}}<a class="crumb" href="/">← Formularze</a>{{end}}
+{{define "actions"}}{{$d := .Data.Def}}
+<a class="btn" href="/forms/{{$d.ID}}/submissions">Zgłoszenia</a>
+<a class="btn" href="/forms/{{$d.ID}}/snippet">Kod HTML</a>
+{{end}}
 {{define "content"}}
 {{$d := .Data.Def}}
-<p class="muted">Endpoint: <code>POST /f/{{$d.ID}}</code> · <a href="/forms/{{$d.ID}}/snippet">Kod HTML</a> · <a href="/forms/{{$d.ID}}/submissions">Zgłoszenia</a> · <a href="/forms/{{$d.ID}}/delete" class="warn">Usuń</a></p>
 <form method="post" action="/forms/{{$d.ID}}" class="settings">
 <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
 
-<fieldset><legend>Ogólne</legend>
-  <label class="check"><input type="checkbox" name="enabled" value="1" {{if $d.Enabled}}checked{{end}}> Formularz aktywny</label>
-  <label>Nazwa <input name="title" value="{{$d.Title}}" maxlength="200"></label>
-  <label>Dozwolone originy (jeden na linię) <textarea name="allowed_origins" rows="3">{{lines $d.AllowedOrigins}}</textarea></label>
-  <label>Przekierowanie po sukcesie (opcjonalnie) <input name="redirect_success" value="{{$d.RedirectSuccess}}" placeholder="https://example.com/dziekujemy.html"></label>
-  <label>Przekierowanie po błędzie (opcjonalnie) <input name="redirect_error" value="{{$d.RedirectError}}" placeholder="https://example.com/blad.html"></label>
-</fieldset>
-
-<fieldset><legend>Pola</legend>
-<p class="muted">Pola spoza listy są odrzucane. Aby usunąć pole, wyczyść jego nazwę.</p>
-<table class="fields">
-<thead><tr><th>Nazwa</th><th>Etykieta</th><th>Typ</th><th>Wymagane</th><th>Max znaków</th></tr></thead>
-<tbody>
-{{range .Data.Rows}}{{$t := .Type}}
-<tr>
-  <td><input name="field_name" value="{{.Name}}" maxlength="64"></td>
-  <td><input name="field_label" value="{{.Label}}" maxlength="200"></td>
-  <td><select name="field_type">{{range $.Data.Types}}<option value="{{.}}" {{if eq . $t}}selected{{end}}>{{.}}</option>{{end}}</select></td>
-  <td><select name="field_required"><option value="0">nie</option><option value="1" {{if .Required}}selected{{end}}>tak</option></select></td>
-  <td><input name="field_max" value="{{if .Max}}{{.Max}}{{end}}" inputmode="numeric" size="6"></td>
-</tr>
-{{end}}
-</tbody>
-</table>
-</fieldset>
-
-<fieldset><legend>Ochrona przed nadużyciami</legend>
-  <label class="check"><input type="checkbox" name="challenge" value="1" {{if $d.Challenge}}checked{{end}}> Wymagaj podpisanego, jednorazowego challenge (wymaga <code>formd.js</code>)</label>
-  <div class="grid">
-    <label>Trudność proof-of-work (bity, 0–24) <input name="pow_bits" value="{{$d.PowBits}}" inputmode="numeric"><small>16 ≈ 65 tys. hashy, ułamek sekundy dla człowieka; każdy +1 podwaja koszt.</small></label>
-    <label>Min. czas wypełnienia (s) <input name="min_seconds" value="{{$d.MinSeconds}}" inputmode="numeric"><small>Liczone po stronie serwera od wydania challenge.</small></label>
-    <label>Limit zgłoszeń per IP <input name="rate_per_ip" value="{{$d.RatePerIP}}" inputmode="numeric"></label>
-    <label>…w oknie (minuty) <input name="rate_window_min" value="{{$d.RateWindowMin}}" inputmode="numeric"></label>
-    <label>Max zgłoszeń na godzinę (cały formularz, 0 = bez limitu) <input name="hourly_cap" value="{{$d.HourlyCap}}" inputmode="numeric"></label>
-    <label>Max linków w treści (puste = bez limitu) <input name="max_links" value="{{if ge $d.MaxLinks 0}}{{$d.MaxLinks}}{{end}}" inputmode="numeric"></label>
-    <label>Odrzucaj duplikaty z ostatnich (godz., 0 = wył.) <input name="dedupe_hours" value="{{$d.DedupeHours}}" inputmode="numeric"></label>
-    <label>Usuwaj zgłoszenia starsze niż (dni, 0 = nigdy) <input name="retention_days" value="{{$d.RetentionDays}}" inputmode="numeric"></label>
+<section class="panel">
+  <div class="panel-head">
+    <div><h2>Ogólne</h2><p>Endpoint <code>POST /f/{{$d.ID}}</code></p></div>
+    <label class="switch"><input type="checkbox" name="enabled" value="1" {{if $d.Enabled}}checked{{end}}><span></span>Aktywny</label>
   </div>
-  <label>Pole-pułapka (honeypot) <input name="honeypot" value="{{$d.Honeypot}}" maxlength="64"></label>
-  <label>Zablokowane frazy (jedna na linię, bez rozróżniania wielkości liter) <textarea name="blocked_words" rows="3">{{lines $d.BlockedWords}}</textarea></label>
-</fieldset>
-
-<fieldset><legend>Powiadomienie do właściciela</legend>
-  <label>Odbiorcy (jeden adres na linię) <textarea name="notify" rows="3">{{lines $d.Notify}}</textarea></label>
-  <label>Temat (szablon, np. <code>{{"{{.name}}"}}</code>) <input name="notify_subject" value="{{$d.NotifySubject}}" maxlength="500"></label>
-  <label>Pole użyte jako Reply-To (typ email) <input name="reply_to_field" value="{{$d.ReplyToField}}" maxlength="64"></label>
-</fieldset>
-
-<fieldset><legend>Potwierdzenie do nadawcy</legend>
-  <p class="warn">Uwaga: potwierdzenie trafia na adres podany przez dowolną osobę. Nie wklejaj do niego treści pól wpisywanych przez użytkownika (np. wiadomości) — spamer mógłby wtedy wysyłać przez Ciebie własne treści do obcych ludzi.</p>
-  <label class="check"><input type="checkbox" name="confirm_enabled" value="1" {{if $d.ConfirmEnabled}}checked{{end}}> Wysyłaj potwierdzenie</label>
-  <div class="grid">
-    <label>Pole z adresem odbiorcy <input name="confirm_to_field" value="{{$d.ConfirmToField}}" maxlength="64"></label>
-    <label>Max potwierdzeń na adres / 24h <input name="confirm_per_recipient_day" value="{{$d.ConfirmPerRecipientDay}}" inputmode="numeric"></label>
+  <div class="grid2">
+    <label class="field">Nazwa<input name="title" value="{{$d.Title}}" maxlength="200"></label>
+    <label class="field">Dozwolone originy<small>Jeden na linię.</small><textarea name="allowed_origins" rows="2">{{lines $d.AllowedOrigins}}</textarea></label>
+    <label class="field">Przekierowanie po sukcesie<small>Opcjonalne, dla formularzy bez JS.</small><input name="redirect_success" value="{{$d.RedirectSuccess}}" placeholder="https://example.com/dziekujemy.html"></label>
+    <label class="field">Przekierowanie po błędzie<small>Opcjonalne.</small><input name="redirect_error" value="{{$d.RedirectError}}" placeholder="https://example.com/blad.html"></label>
   </div>
-  <label>Temat <input name="confirm_subject" value="{{$d.ConfirmSubject}}" maxlength="500"></label>
-  <label>Treść (tekst, szablon Go) <textarea name="confirm_text" rows="6">{{$d.ConfirmText}}</textarea></label>
-  <label>Treść HTML (opcjonalnie, wartości są escapowane automatycznie) <textarea name="confirm_html" rows="6">{{$d.ConfirmHTML}}</textarea></label>
-</fieldset>
+</section>
 
-<button>Zapisz</button>
+<section class="panel">
+  <div class="panel-head"><div><h2>Pola</h2><p>Pola spoza listy są odrzucane. Aby usunąć pole, wyczyść jego nazwę.</p></div></div>
+  <div class="fields">
+    <div class="frow fhead"><span>Nazwa</span><span>Etykieta</span><span>Typ</span><span>Wymagane</span><span>Max znaków</span></div>
+    {{range .Data.Rows}}{{$t := .Type}}
+    <div class="frow">
+      <input name="field_name" value="{{.Name}}" maxlength="64" placeholder="nowe pole" aria-label="Nazwa pola">
+      <input name="field_label" value="{{.Label}}" maxlength="200" aria-label="Etykieta">
+      <select name="field_type" aria-label="Typ">{{range $.Data.Types}}<option value="{{.}}" {{if eq . $t}}selected{{end}}>{{.}}</option>{{end}}</select>
+      <select name="field_required" aria-label="Wymagane"><option value="0">nie</option><option value="1" {{if .Required}}selected{{end}}>tak</option></select>
+      <input name="field_max" value="{{if .Max}}{{.Max}}{{end}}" inputmode="numeric" aria-label="Max znaków">
+    </div>
+    {{end}}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><h2>Ochrona przed nadużyciami</h2><p>Podpisany token + proof-of-work zamiast captchy. Wymaga <code>formd.js</code> na stronie.</p></div>
+    <label class="switch"><input type="checkbox" name="challenge" value="1" {{if $d.Challenge}}checked{{end}}><span></span>Challenge</label>
+  </div>
+  <div class="grid3">
+    <label class="field">Trudność PoW<small>Bity, 0–24. 16 ≈ ułamek sekundy.</small><input name="pow_bits" value="{{$d.PowBits}}" inputmode="numeric"></label>
+    <label class="field">Min. czas wypełnienia<small>Sekundy, liczone na serwerze.</small><input name="min_seconds" value="{{$d.MinSeconds}}" inputmode="numeric"></label>
+    <label class="field">Pole-pułapka<small>Honeypot, ukryte CSS-em.</small><input name="honeypot" value="{{$d.Honeypot}}" maxlength="64"></label>
+    <label class="field">Zgłoszeń per IP<small>W oknie poniżej.</small><input name="rate_per_ip" value="{{$d.RatePerIP}}" inputmode="numeric"></label>
+    <label class="field">Okno limitu<small>Minuty.</small><input name="rate_window_min" value="{{$d.RateWindowMin}}" inputmode="numeric"></label>
+    <label class="field">Max na godzinę<small>Cały formularz, 0 = bez limitu.</small><input name="hourly_cap" value="{{$d.HourlyCap}}" inputmode="numeric"></label>
+    <label class="field">Max linków<small>Puste = bez limitu.</small><input name="max_links" value="{{if ge $d.MaxLinks 0}}{{$d.MaxLinks}}{{end}}" inputmode="numeric"></label>
+    <label class="field">Duplikaty<small>Odrzucaj z ostatnich N godzin.</small><input name="dedupe_hours" value="{{$d.DedupeHours}}" inputmode="numeric"></label>
+    <label class="field">Retencja<small>Usuwaj po N dniach, 0 = nigdy.</small><input name="retention_days" value="{{$d.RetentionDays}}" inputmode="numeric"></label>
+  </div>
+  <label class="field">Zablokowane frazy<small>Jedna na linię, bez rozróżniania wielkości liter.</small><textarea name="blocked_words" rows="2">{{lines $d.BlockedWords}}</textarea></label>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><div><h2>Powiadomienie</h2><p>Mail do Ciebie po każdym zgłoszeniu.</p></div></div>
+  <div class="grid2">
+    <label class="field">Odbiorcy<small>Jeden adres na linię.</small><textarea name="notify" rows="2">{{lines $d.Notify}}</textarea></label>
+    <div class="stack">
+      <label class="field">Temat<small>Szablon, np. <code>{{"{{.name}}"}}</code></small><input name="notify_subject" value="{{$d.NotifySubject}}" maxlength="500"></label>
+      <label class="field">Pole Reply-To<small>Pole typu email.</small><input name="reply_to_field" value="{{$d.ReplyToField}}" maxlength="64"></label>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><h2>Potwierdzenie do nadawcy</h2><p>Automatyczna odpowiedź na adres podany w formularzu.</p></div>
+    <label class="switch"><input type="checkbox" name="confirm_enabled" value="1" {{if $d.ConfirmEnabled}}checked{{end}}><span></span>Wysyłaj</label>
+  </div>
+  <div class="note warn">Adres wpisuje dowolna osoba. Nie wklejaj do potwierdzenia treści pól od użytkownika (np. wiadomości) — spamer mógłby wysyłać przez Ciebie własne treści do obcych ludzi.</div>
+  <div class="grid3">
+    <label class="field">Pole z adresem<input name="confirm_to_field" value="{{$d.ConfirmToField}}" maxlength="64"></label>
+    <label class="field">Limit na adres / 24 h<input name="confirm_per_recipient_day" value="{{$d.ConfirmPerRecipientDay}}" inputmode="numeric"></label>
+    <label class="field">Temat<input name="confirm_subject" value="{{$d.ConfirmSubject}}" maxlength="500"></label>
+  </div>
+  <div class="grid2">
+    <label class="field">Treść tekstowa<small>Szablon Go.</small><textarea name="confirm_text" rows="6">{{$d.ConfirmText}}</textarea></label>
+    <label class="field">Treść HTML<small>Opcjonalna; wartości są escapowane.</small><textarea name="confirm_html" rows="6">{{$d.ConfirmHTML}}</textarea></label>
+  </div>
+</section>
+
+<div class="savebar">
+  <a class="danger-link" href="/forms/{{$d.ID}}/delete">Usuń formularz</a>
+  <button class="btn primary">Zapisz zmiany</button>
+</div>
 </form>
 {{end}}

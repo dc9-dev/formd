@@ -101,12 +101,18 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request, s *store.Sessi
 		return
 	}
 	var list []dashRow
+	total, live := 0, 0
 	for _, fr := range rows {
 		f := a.Forms.Get(fr.Def.ID)
-		list = append(list, dashRow{Def: fr.Def, Count: counts[fr.Def.ID], Live: f != nil && f.Def.Enabled})
+		r := dashRow{Def: fr.Def, Count: counts[fr.Def.ID], Live: f != nil && f.Def.Enabled}
+		total += r.Count
+		if r.Live {
+			live++
+		}
+		list = append(list, r)
 	}
 	a.render(w, r, http.StatusOK, "dashboard", view{Title: "Formularze", Session: s, Data: map[string]any{
-		"Forms": list, "Failed": len(failed), "Mailer": a.Cfg.Mailer,
+		"Forms": list, "Failed": len(failed), "Mailer": a.Cfg.Mailer, "Total": total, "Live": live,
 	}})
 }
 
@@ -179,7 +185,7 @@ func (a *Admin) editPage(w http.ResponseWriter, r *http.Request, s *store.Sessio
 	if !ok {
 		return
 	}
-	a.render(w, r, http.StatusOK, "edit", view{Title: "Formularz: " + d.Title, Session: s, Data: editView(d)})
+	a.render(w, r, http.StatusOK, "edit", view{Title: d.Title, Session: s, Data: editView(d)})
 }
 
 func (a *Admin) editSubmit(w http.ResponseWriter, r *http.Request, s *store.Session) {
@@ -191,7 +197,7 @@ func (a *Admin) editSubmit(w http.ResponseWriter, r *http.Request, s *store.Sess
 	f, err := forms.Compile(d)
 	if perr != nil || err != nil {
 		errs := append(splitErr(perr), splitErr(err)...)
-		a.render(w, r, http.StatusBadRequest, "edit", view{Title: "Formularz: " + cur.Title, Session: s, Errors: errs, Data: editView(d)})
+		a.render(w, r, http.StatusBadRequest, "edit", view{Title: cur.Title, Session: s, Errors: errs, Data: editView(d)})
 		return
 	}
 	if err := a.Store.UpdateForm(r.Context(), f.Def); err != nil {

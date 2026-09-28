@@ -1,4 +1,4 @@
-![formd — Static forms backend](assets/github/formd-github-banner.png)
+![formd — Static forms backend](assets/github/formd-github-banner-white.png)
 
 # formd
 
