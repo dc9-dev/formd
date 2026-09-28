@@ -1,7 +1,9 @@
 {{define "crumbs"}}<a class="crumb" href="/forms/{{.Data.Def.ID}}">← {{.Data.Def.Title}}</a>{{end}}
 {{define "content"}}
 <section class="panel">
-  <p class="hint">Wklej do strony statycznej. Ścieżka <code>/f/</code> musi być przekazywana przez reverse proxy do formd.</p>
+  <div class="note warn">Formularz musi trafiać na adres <b>HTTPS</b> obsługiwany przez reverse proxy (nginx/Caddy) — formd słucha tylko lokalnie i nie obsługuje TLS. Strona po HTTPS nie może wysłać formularza na <code>http://</code>: przeglądarka to zablokuje.</div>
+  <p class="hint" style="margin-top:14px"><b>Ta sama domena co strona</b> (proxy przekazuje <code>/f/</code> do formd): użyj kodu poniżej bez zmian.<br>
+  <b>Osobna subdomena</b> (strona na innym hostingu): zamień <code>/f/…</code> na pełny adres, np. <code>https://forms.example.com/f/{{.Data.Def.ID}}</code>, również w <code>src</code> skryptu.</p>
   <pre class="code">{{.Data.HTML}}</pre>
   <p class="hint">Bez JavaScriptu formularz z włączonym challenge nie przejdzie weryfikacji — to celowe. Wariant <code>data-formd="ajax"</code> wysyła przez fetch i pokazuje wynik w <code>[data-formd-status]</code>.</p>
 </section>

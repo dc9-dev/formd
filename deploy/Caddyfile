@@ -1,8 +1,11 @@
+# Caddy sam pobiera i odnawia certyfikaty (Let's Encrypt) i przekierowuje
+# HTTP -> HTTPS. Wybierz JEDEN wariant.
+
+# ── Wariant A (zalecany): formularz na tej samej domenie co strona ──────────
+# Formularz: <form action="/f/kontakt" ...>, w panelu origin https://example.com
 example.com {
     root * /var/www/example.com
-    file_server
 
-    # Tylko endpointy formularzy; panel admina zostaje na 127.0.0.1:8026.
     handle /f/* {
         request_body {
             max_size 64KB
@@ -11,4 +14,27 @@ example.com {
             header_up X-Real-IP {remote_host}
         }
     }
+
+    handle {
+        file_server
+    }
 }
+
+# ── Wariant B: osobna subdomena (strona hostowana gdzie indziej) ────────────
+# Formularz: <form action="https://forms.example.com/f/kontakt" ...>
+#            <script src="https://forms.example.com/f/formd.js" defer>
+# W panelu origin strony, np. https://example.com
+#
+# forms.example.com {
+#     handle /f/* {
+#         request_body {
+#             max_size 64KB
+#         }
+#         reverse_proxy 127.0.0.1:8025 {
+#             header_up X-Real-IP {remote_host}
+#         }
+#     }
+#     handle {
+#         respond 404
+#     }
+# }

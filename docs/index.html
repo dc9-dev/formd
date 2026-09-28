@@ -123,7 +123,7 @@ th,td{padding:16px 20px;border-bottom:1px solid var(--line);text-align:left;vert
 th{background:#fbfcfe;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 tr:last-child td{border-bottom:0}
 
-.final{padding:0 0 96px}
+.final{padding:96px 0}
 .final .box{text-align:center;background:linear-gradient(180deg,var(--blue-50),#fff);border:1px solid var(--blue-100);border-radius:24px;padding:56px 24px}
 .final img{width:72px;height:72px;margin:0 auto 18px}
 .final .sub{margin:0 auto 28px;max-width:520px}
@@ -142,7 +142,7 @@ footer img{height:22px;width:auto}
   .nav-links a:not(.gh){display:none}
   .grid,.layers,.flow,.split{grid-template-columns:1fr}
   section{padding:68px 0}
-  .final{padding-bottom:68px}
+  .final{padding:68px 0}
   .hero{padding-top:44px}
   .shot{margin-top:44px}
   .browser{border-radius:12px 12px 0 0}
@@ -285,7 +285,49 @@ footer img{height:22px;width:auto}
   </div>
 </section>
 
-<section id="start" class="alt">
+<section id="https" class="alt">
+  <div class="wrap">
+    <div class="head">
+      <span class="kicker">HTTPS</span>
+      <h2>Formularz zawsze po HTTPS, przez Twoje proxy</h2>
+      <p class="sub">formd nie obsługuje TLS i słucha tylko na 127.0.0.1. Certyfikat i HTTPS zapewnia nginx lub Caddy, który przekazuje do formd wyłącznie <code>/f/</code>. Strona po HTTPS nie może wysłać formularza na <code>http://</code>, bo przeglądarka to zablokuje.</p>
+    </div>
+    <div class="split">
+      <div class="code">
+        <header><span>A · ta sama domena (zalecany)</span><span>nginx</span></header>
+<pre><span class="c"># strona i formd na jednym serwerze</span>
+server {
+  listen 443 ssl;
+  server_name example.com;
+  root /var/www/example.com;
+
+  location /f/ {
+    proxy_pass http://127.0.0.1:8025;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}
+<span class="c"># formularz: action="/f/kontakt"</span></pre>
+      </div>
+      <div class="code">
+        <header><span>B · osobna subdomena</span><span>Caddy</span></header>
+<pre><span class="c"># strona na GitHub Pages / Netlify / S3</span>
+forms.example.com {
+  handle /f/* {
+    reverse_proxy 127.0.0.1:8025 {
+      header_up X-Real-IP {remote_host}
+    }
+  }
+  handle { respond 404 }
+}
+<span class="c"># formularz: action="https://forms.example.com/f/kontakt"</span>
+<span class="c"># w panelu origin strony: https://example.com</span></pre>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:22px">Pełne konfiguracje z certyfikatami, przekierowaniem HTTP→HTTPS i HSTS są w <a href="https://github.com/dc9-dev/formd/tree/main/deploy">deploy/</a>. Instrukcja krok po kroku i komendy do sprawdzenia są w <a href="https://github.com/dc9-dev/formd#https-i-reverse-proxy">README</a>.</p>
+  </div>
+</section>
+
+<section id="start">
   <div class="wrap">
     <div class="head">
       <span class="kicker">Szybki start</span>
@@ -305,7 +347,10 @@ footer img{height:22px;width:auto}
 <span class="c"># 3. start</span>
 <span class="p">$ </span>formd serve
 
-<span class="c"># 4. panel z Twojego komputera</span>
+<span class="c"># 4. HTTPS: nginx/Caddy przekazuje /f/ do formd</span>
+<span class="c">#    (sekcja HTTPS wyżej)</span>
+
+<span class="c"># 5. panel z Twojego komputera</span>
 <span class="p">$ </span>ssh -L 8026:127.0.0.1:8026 serwer
 <span class="c">#   → http://localhost:8026</span></pre>
       </div>
@@ -327,7 +372,7 @@ footer img{height:22px;width:auto}
   </div>
 </section>
 
-<section>
+<section class="alt">
   <div class="wrap">
     <div class="head">
       <span class="kicker">Wysyłka</span>

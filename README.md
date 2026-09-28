@@ -66,6 +66,8 @@ Panel: `http://localhost:8026`. Utwórz formularz, podaj origin strony, pola i o
 <script src="/f/formd.js" defer></script>
 ```
 
+> Względny adres `/f/kontakt` działa, gdy formd jest wystawiony przez reverse proxy **na tej samej domenie co strona**. Przy osobnej subdomenie użyj pełnych adresów `https://…` — patrz [HTTPS i reverse proxy](#https-i-reverse-proxy).
+
 ## Wdrożenie na serwerze
 
 ```sh
@@ -76,8 +78,83 @@ sudo systemctl enable --now formd
 sudo -u formd formd -env /etc/formd/formd.env user add admin
 ```
 
-- Reverse proxy: [`deploy/nginx.conf`](deploy/nginx.conf) lub [`deploy/Caddyfile`](deploy/Caddyfile). Wystawiaj **tylko** `/f/`.
 - Panel z własnego komputera: `ssh -L 8026:127.0.0.1:8026 serwer`, potem `http://localhost:8026`.
+- Formularze wystawiasz przez reverse proxy z HTTPS — opis niżej.
+
+## HTTPS i reverse proxy
+
+formd **nie obsługuje TLS i nie powinien być osiągalny z internetu** — słucha tylko na `127.0.0.1`. Szyfrowanie zapewnia reverse proxy (nginx lub Caddy), które przyjmuje połączenie HTTPS od przeglądarki i przekazuje do formd wyłącznie ścieżkę `/f/`.
+
+To nie jest opcja, tylko wymóg: strona serwowana po HTTPS **nie może** wysłać formularza na adres `http://`. Przeglądarka zablokuje `fetch` jako *mixed content*, a zwykły POST formularza pokaże ostrzeżenie o niezabezpieczonym formularzu lub go zablokuje. Adres w `action` musi więc być adresem HTTPS obsługiwanym przez Twoje proxy.
+
+```
+przeglądarka ──HTTPS──▶ nginx / Caddy :443 (certyfikat) ──HTTP──▶ 127.0.0.1:8025 formd
+                        └─ tylko /f/*                            (ruch lokalny, poza siecią)
+```
+
+### Który wariant?
+
+| | A. Ta sama domena (zalecany) | B. Osobna subdomena |
+| --- | --- | --- |
+| Kiedy | Strona statyczna leży na tym samym serwerze co formd | Strona jest gdzie indziej: GitHub Pages, Netlify, S3/CloudFront, inny serwer |
+| `action` formularza | `/f/kontakt` | `https://forms.example.com/f/kontakt` |
+| Skrypt | `/f/formd.js` | `https://forms.example.com/f/formd.js` |
+| Certyfikat | ten sam co strona | osobny dla `forms.example.com` |
+| CORS | nie występuje | formd odpowiada nagłówkami CORS dla originów z panelu |
+| Konfiguracja | [`deploy/nginx-same-domain.conf`](deploy/nginx-same-domain.conf), [`deploy/Caddyfile`](deploy/Caddyfile) | [`deploy/nginx-subdomain.conf`](deploy/nginx-subdomain.conf), [`deploy/Caddyfile`](deploy/Caddyfile) |
+
+W obu wariantach **dozwolony origin w panelu to adres strony** (np. `https://example.com`), a nie adres formd.
+
+### Krok po kroku (nginx + Let's Encrypt)
+
+```sh
+# 1. (wariant B) rekord DNS: forms.example.com -> IP serwera
+# 2. konfiguracja
+sudo cp deploy/nginx-same-domain.conf /etc/nginx/conf.d/example.com.conf   # albo nginx-subdomain.conf
+sudo nano /etc/nginx/conf.d/example.com.conf                               # podmień example.com
+# 3. certyfikat (certbot sam wpisze ścieżki i będzie odnawiał)
+sudo certbot --nginx -d example.com -d www.example.com                      # B: -d forms.example.com
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Caddy robi krok 3 automatycznie: wystarczy [`deploy/Caddyfile`](deploy/Caddyfile) z Twoją domeną i `systemctl reload caddy`.
+
+Ustawienia w `/etc/formd/formd.env` pasujące do proxy na tym samym hoście:
+
+```sh
+LISTEN_ADDR=127.0.0.1:8025
+ALLOWED_IPS=127.0.0.1,::1        # tylko proxy może łączyć się z formd
+TRUSTED_PROXIES=127.0.0.1,::1    # tylko od proxy wierzymy X-Real-IP (limity per IP)
+```
+
+Jeśli proxy stoi na **innej maszynie** niż formd, ustaw `LISTEN_ADDR` na prywatny adres tej maszyny (np. `10.0.0.5:8025`), a w `ALLOWED_IPS` i `TRUSTED_PROXIES` wpisz adres proxy. Ruch między nimi powinien iść siecią prywatną lub VPN (WireGuard), nigdy przez internet.
+
+### Wariant B: strona na innym hostingu
+
+```html
+<form action="https://forms.example.com/f/kontakt" method="post" data-formd="ajax">
+  …
+</form>
+<script src="https://forms.example.com/f/formd.js" defer></script>
+```
+
+Jeśli strona ma własny Content-Security-Policy, dopisz `https://forms.example.com` do `script-src`, `connect-src` i `form-action`.
+
+### Sprawdzenie
+
+```sh
+curl -I https://example.com/f/formd.js                # 200, text/javascript
+curl -s https://example.com/f/kontakt/challenge \
+     -H 'Origin: https://example.com'                  # {"token":"…","bits":16,…}
+curl -s -o /dev/null -w '%{http_code}\n' \
+     https://example.com/f/kontakt/challenge \
+     -H 'Origin: https://evil.example'                 # 403 — obcy origin
+curl -s -o /dev/null -w '%{http_code}\n' http://example.com/f/formd.js   # 301 -> HTTPS
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 http://IP_SERWERA:8025/healthz   # brak połączenia — formd niewidoczny z zewnątrz
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 http://IP_SERWERA:8026/login     # brak połączenia — panel niewidoczny z zewnątrz
+```
+
+W przeglądarce: DevTools → Network → wysłanie formularza powinno pokazać `POST https://…/f/kontakt` ze statusem 200 (wariant ajax) albo 303 (zwykły POST), bez ostrzeżeń *mixed content* w konsoli.
 
 ## Konfiguracja wysyłki
 
