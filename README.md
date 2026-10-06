@@ -129,6 +129,21 @@ TRUSTED_PROXIES=127.0.0.1,::1    # tylko od proxy wierzymy X-Real-IP (limity per
 
 Jeśli proxy stoi na **innej maszynie** niż formd, ustaw `LISTEN_ADDR` na prywatny adres tej maszyny (np. `10.0.0.5:8025`), a w `ALLOWED_IPS` i `TRUSTED_PROXIES` wpisz adres proxy. Ruch między nimi powinien iść siecią prywatną lub VPN (WireGuard), nigdy przez internet.
 
+### Komunikaty w innych językach
+
+Domyślne komunikaty `formd.js` są po polsku. Na stronach w innych językach ustaw je atrybutami formularza:
+
+```html
+<form action="/f/kontakt" method="post" data-formd="ajax"
+      data-formd-sending="Sending…"
+      data-formd-success="Thank you! Your message has been sent."
+      data-formd-error="Your message could not be sent. Please email us."
+      data-formd-network-error="Could not send the form. Please try again."
+      data-formd-server-errors="off">
+```
+
+`data-formd-server-errors="off"` ukrywa szczegółowe komunikaty walidacji z serwera (są po polsku) i pokazuje zamiast nich `data-formd-error`.
+
 ### Wariant B: strona na innym hostingu
 
 ```html

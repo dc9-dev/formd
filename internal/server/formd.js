@@ -5,6 +5,14 @@
  * data-formd="ajax" submits with fetch and writes the result into the element
  * marked [data-formd-status] inside the form; otherwise a normal POST is made
  * (server redirects to the configured success/error page).
+ *
+ * Messages (defaults are Polish; override per form for other languages):
+ *   data-formd-sending="Sending…"
+ *   data-formd-success="Thank you! Your message has been sent."
+ *   data-formd-error="The form could not be sent."            (server rejected, no details)
+ *   data-formd-network-error="Could not send the form. Try again."
+ *   data-formd-server-errors="off"   hide the server's per-field messages (they are Polish)
+ *                                    and show data-formd-error instead
  */
 (function () {
   'use strict';
@@ -99,6 +107,11 @@
     }
     fetchChallenge();
 
+    function msg(name, fallback) {
+      var v = form.getAttribute('data-formd-' + name);
+      return v === null || v === '' ? fallback : v;
+    }
+
     function status(msg, ok) {
       var el = form.querySelector('[data-formd-status]');
       if (el) { el.textContent = msg; el.dataset.state = ok ? 'ok' : 'error'; }
@@ -108,7 +121,7 @@
       ev.preventDefault();
       var btn = form.querySelector('[type="submit"]');
       if (btn) btn.disabled = true;
-      status('Wysyłanie…', true);
+      status(msg('sending', 'Wysyłanie…'), true);
       try {
         var c = await state.catch(function () { fetchChallenge(); return state; });
         if (Date.now() - c.at > 90 * 60 * 1000) { fetchChallenge(); c = await state; }
@@ -130,13 +143,15 @@
         var data = await res.json().catch(function () { return {}; });
         if (data.ok) {
           form.reset();
-          status(form.getAttribute('data-formd-success') || 'Dziękujemy! Wiadomość została wysłana.', true);
+          status(msg('success', 'Dziękujemy! Wiadomość została wysłana.'), true);
         } else {
           var errs = data.errors || {};
-          status(Object.keys(errs).map(function (k) { return (k === '_form' ? '' : k + ': ') + errs[k]; }).join('\n') || 'Nie udało się wysłać formularza.', false);
+          var details = form.getAttribute('data-formd-server-errors') === 'off' ? '' :
+            Object.keys(errs).map(function (k) { return (k === '_form' ? '' : k + ': ') + errs[k]; }).join('\n');
+          status(details || msg('error', 'Nie udało się wysłać formularza.'), false);
         }
       } catch (e) {
-        status('Nie udało się wysłać formularza. Spróbuj ponownie.', false);
+        status(msg('network-error', 'Nie udało się wysłać formularza. Spróbuj ponownie.'), false);
       } finally {
         fetchChallenge(); // tokens are single-use
         if (btn) btn.disabled = false;
