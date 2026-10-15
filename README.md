@@ -4,7 +4,7 @@
 
 **Samodzielny backend formularzy dla stron statycznych.** Jedna binarka w Go, którą instalujesz na tym samym serwerze co stronę. Przyjmuje formularz, waliduje go, zapisuje do SQLite i wysyła powiadomienie do właściciela oraz potwierdzenie do nadawcy (SMTP, Amazon SES albo tylko log). Bez zewnętrznych SaaS-ów, bez captchy od firm trzecich, bez wysyłania danych poza serwer.
 
-Strona projektu: **https://dc9-dev.github.io/formd/**
+Strona projektu: **https://formd.top/**
 
 ```
 przeglądarka ──POST /f/kontakt──▶ nginx/Caddy (TLS) ──▶ 127.0.0.1:8025  formd (API)
