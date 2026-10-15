@@ -1,40 +1,44 @@
 {{define "actions"}}<a class="btn primary" href="/forms/new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nowy formularz</a>{{end}}
 {{define "content"}}
 {{with .Data}}
-<div class="stats">
-  <div class="stat"><span>Formularze</span><b>{{len .Forms}}</b><small>{{.Live}} aktywnych</small></div>
-  <div class="stat"><span>Zgłoszenia</span><b>{{.Total}}</b><small>łącznie w bazie</small></div>
-  <div class="stat {{if .Failed}}alert{{end}}"><span>Nieudane maile</span><b>{{.Failed}}</b><small>{{if .Failed}}<a href="/outbox?status=failed">sprawdź kolejkę →</a>{{else}}wysyłka: {{.Mailer}}{{end}}</small></div>
-</div>
+<section class="summary" aria-label="Podsumowanie">
+  <div class="stat"><b>{{.Total}}</b><span>zgłoszeń w bazie</span></div>
+  <div class="stat"><b>{{.Live}}<span class="stat-of"> / {{len .Forms}}</span></b><span>aktywnych formularzy</span></div>
+  {{if .Held}}<div class="stat warn"><b>{{.Held}}</b><span>czeka na zatwierdzenie</span></div>{{end}}
+  <div class="stat {{if .Failed}}alert{{end}}"><b>{{.Failed}}</b><span>{{if .Failed}}<a href="/outbox?status=failed">nieudanych maili</a>{{else}}nieudanych maili{{end}}</span><small>wysyłka: {{.Mailer}}</small></div>
+  {{if .JevReady}}<div class="stat"><b>${{usd .JevSpent}}</b><span>Jev dzisiaj</span><small>budżet ${{usd .JevBudget}}</small></div>{{end}}
+</section>
 
 {{if .Forms}}
-<div class="cards">
+<ul class="form-list" aria-label="Formularze">
 {{range .Forms}}
-  <article class="form-card">
-    <div class="fc-top">
-      <div>
-        <h2><a href="/forms/{{.Def.ID}}">{{.Def.Title}}</a></h2>
-        <code class="muted">/f/{{.Def.ID}}</code>
-      </div>
-      {{if .Live}}<span class="pill green">aktywny</span>{{else}}<span class="pill">wyłączony</span>{{end}}
+  <li class="form-row">
+    <div class="fr-name">
+      <a href="/forms/{{.Def.ID}}">{{.Def.Title}}</a>
+      <span class="muted"><code>/f/{{.Def.ID}}</code></span>
     </div>
-    <div class="chips">
-      {{if .Def.Challenge}}<span class="chip">challenge{{if .Def.PowBits}} · PoW {{.Def.PowBits}}b{{end}}</span>{{else}}<span class="chip warn">bez challenge</span>{{end}}
-      {{if .Def.RatePerIP}}<span class="chip">{{.Def.RatePerIP}}/{{.Def.RateWindowMin}} min per IP</span>{{end}}
-      {{if .Def.ConfirmEnabled}}<span class="chip">potwierdzenia</span>{{end}}
+    <div class="fr-tags">
+      {{if .Live}}<span class="tag green">aktywny</span>{{else}}<span class="tag">wyłączony</span>{{end}}
+      {{if .Def.Challenge}}<span class="tag">PoW {{.Def.PowBits}} bit</span>{{else}}<span class="tag amber">bez challenge</span>{{end}}
+      {{if .Def.RatePerIP}}<span class="tag">{{.Def.RatePerIP}} na {{.Def.RateWindowMin}} min</span>{{end}}
+      {{if .Def.JevEnabled}}<span class="tag blue">Jev: {{jevAction .Def.JevAction}}</span>{{end}}
     </div>
-    <div class="fc-foot">
-      <a class="count" href="/forms/{{.Def.ID}}/submissions"><b>{{.Count}}</b> zgłoszeń</a>
-      <span class="links"><a href="/forms/{{.Def.ID}}/snippet">Kod HTML</a><a href="/forms/{{.Def.ID}}">Ustawienia</a></span>
+    <div class="fr-count">
+      <a href="/forms/{{.Def.ID}}/submissions"><b>{{.Count}}</b>zgłoszeń</a>
+      {{if .Held}}<a class="held-link" href="/forms/{{.Def.ID}}/submissions?status=held">{{.Held}} do zatwierdzenia</a>{{end}}
     </div>
-  </article>
+    <div class="fr-actions">
+      <a class="btn small" href="/forms/{{.Def.ID}}">Ustawienia</a>
+      <a class="btn small" href="/forms/{{.Def.ID}}/snippet">Kod HTML</a>
+    </div>
+  </li>
 {{end}}
-</div>
+</ul>
 {{else}}
 <div class="empty">
-  <img src="/static/formd-icon-128.png" alt="" width="64" height="64">
+  <img src="/static/formd-icon-128.png" alt="" width="72" height="72">
   <h2>Nie masz jeszcze formularzy</h2>
-  <p>Utwórz pierwszy — dostanie bezpieczne ustawienia domyślne.</p>
+  <p>Utwórz pierwszy. Dostanie bezpieczne ustawienia domyślne: challenge z proof-of-work, limity i honeypot.</p>
   <a class="btn primary" href="/forms/new">Nowy formularz</a>
 </div>
 {{end}}

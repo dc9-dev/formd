@@ -5,8 +5,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/mail"
 	"net/netip"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -56,7 +58,22 @@ type Config struct {
 	SessionTTL        time.Duration
 	SessionIdle       time.Duration
 	LogLevel          string
+
+	Jev Jev
 }
+
+// Jev configures content assessment through TypeSafe's Jev model on
+// OpenRouter. It is off unless OPENROUTER_API_KEY is set; each form must
+// additionally opt in from the admin panel.
+type Jev struct {
+	APIKey         string
+	Model          string
+	URL            string
+	Timeout        time.Duration
+	DailyBudgetUSD float64
+}
+
+func (j Jev) Enabled() bool { return j.APIKey != "" }
 
 // Load reads envFile (if it exists) into the environment without overriding
 // variables that are already set, then builds and validates the Config.
@@ -85,6 +102,13 @@ func Load(envFile string) (*Config, error) {
 		SessionTTL:        e.dur("ADMIN_SESSION_TTL", "12h"),
 		SessionIdle:       e.dur("ADMIN_SESSION_IDLE", "1h"),
 		LogLevel:          e.str("LOG_LEVEL", "info"),
+		Jev: Jev{
+			APIKey:         e.str("OPENROUTER_API_KEY", ""),
+			Model:          e.str("JEV_MODEL", "jev-1.13"),
+			URL:            e.str("JEV_URL", "https://openrouter.ai/api/v1/systemone"),
+			Timeout:        e.dur("JEV_TIMEOUT", "4s"),
+			DailyBudgetUSD: e.float("JEV_DAILY_BUDGET_USD", 1),
+		},
 		SMTP: SMTP{
 			Host: e.str("SMTP_HOST", ""),
 			Port: e.int("SMTP_PORT", 587),
@@ -150,6 +174,23 @@ func (c *Config) validate() error {
 	if c.MaxBody < 1024 || c.MaxBody > 10<<20 {
 		errs = append(errs, errors.New("MAX_BODY must be between 1KB and 10MB"))
 	}
+	if c.Jev.Enabled() {
+		// The API key travels in this request: refuse plaintext except to a
+		// local endpoint (tests, a local gateway).
+		u, err := url.Parse(c.Jev.URL)
+		switch {
+		case err != nil || u.Host == "":
+			errs = append(errs, fmt.Errorf("JEV_URL: invalid URL %q", c.Jev.URL))
+		case u.Scheme != "https" && !(u.Scheme == "http" && isLoopbackHost(u.Hostname())):
+			errs = append(errs, errors.New("JEV_URL must use https (http is allowed only for localhost)"))
+		}
+		if c.Jev.Timeout > 15*time.Second {
+			errs = append(errs, errors.New("JEV_TIMEOUT must be at most 15s (it delays form submission)"))
+		}
+		if c.Jev.DailyBudgetUSD <= 0 {
+			errs = append(errs, errors.New("JEV_DAILY_BUDGET_USD must be greater than 0"))
+		}
+	}
 	return errors.Join(errs...)
 }
 
@@ -199,6 +240,26 @@ func (e *envReader) bool(key string, def bool) bool {
 		e.errs = append(e.errs, fmt.Errorf("%s: invalid boolean %q", key, v))
 	}
 	return b
+}
+
+func (e *envReader) float(key string, def float64) float64 {
+	v := e.str(key, "")
+	if v == "" {
+		return def
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
+		e.errs = append(e.errs, fmt.Errorf("%s: invalid number %q", key, v))
+	}
+	return f
+}
+
+func isLoopbackHost(h string) bool {
+	if h == "localhost" {
+		return true
+	}
+	a, err := netip.ParseAddr(h)
+	return err == nil && a.IsLoopback()
 }
 
 func (e *envReader) dur(key, def string) time.Duration {

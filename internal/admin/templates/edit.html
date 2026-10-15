@@ -57,6 +57,30 @@
 </section>
 
 <section class="panel">
+  <div class="panel-head">
+    <div><h2>Ocena treści (Jev)</h2><p>Model <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev" rel="noreferrer">Jev</a> ocenia, czy wiadomość to spam, oszustwo lub treść obraźliwa, i nadaje jej kategorię oraz pilność. Działa po wszystkich pozostałych filtrach.</p></div>
+    <label class="switch"><input type="checkbox" name="jev_enabled" value="1" {{if $d.JevEnabled}}checked{{end}}><span></span>Włączona</label>
+  </div>
+  {{if not .Data.JevReady}}<div class="note bad">Brak <code>OPENROUTER_API_KEY</code> w konfiguracji serwera, więc ocena nie zadziała, a zgłoszenia będą oznaczane jako „nie oceniono”.</div>{{end}}
+  <div class="note warn">Treść pól jest wysyłana do zewnętrznego API (OpenRouter → TypeSafe). Adresy e-mail są zastępowane samą domeną. Uwzględnij to w polityce prywatności strony.</div>
+  <div class="grid3">
+    <label class="field">Gdy treść jest podejrzana<small>Ryzyko = max(spam, oszustwo, obraźliwe).</small>
+      <select name="jev_action">
+        <option value="hold" {{if eq $d.JevAction "hold"}}selected{{end}}>Wstrzymaj do zatwierdzenia</option>
+        <option value="tag" {{if eq $d.JevAction "tag"}}selected{{end}}>Tylko oznacz [SPAM?]</option>
+        <option value="drop" {{if eq $d.JevAction "drop"}}selected{{end}}>Odrzuć bez zapisu</option>
+      </select></label>
+    <label class="field">Próg ryzyka<small>Procent, od którego treść jest podejrzana.</small><input name="jev_threshold" value="{{$d.JevThreshold}}" inputmode="numeric"></label>
+    <label class="field">Gdy ocena się nie uda<small>Timeout, brak budżetu, błąd API.</small>
+      <select name="jev_hold_on_error">
+        <option value="0">Przepuść (zalecane)</option>
+        <option value="1" {{if $d.JevHoldOnError}}selected{{end}}>Wstrzymaj</option>
+      </select></label>
+  </div>
+  <label class="field">O czym jest strona<small>Krótki opis pomaga odróżnić prawdziwe zapytania od spamu, np. „Gabinet stomatologiczny w Krakowie”. Max 300 znaków.</small><input name="jev_context" value="{{$d.JevContext}}" maxlength="300"></label>
+</section>
+
+<section class="panel">
   <div class="panel-head"><div><h2>Powiadomienie</h2><p>Mail do Ciebie po każdym zgłoszeniu.</p></div></div>
   <div class="grid2">
     <label class="field">Odbiorcy<small>Jeden adres na linię.</small><textarea name="notify" rows="2">{{lines $d.Notify}}</textarea></label>
@@ -72,15 +96,15 @@
     <div><h2>Potwierdzenie do nadawcy</h2><p>Automatyczna odpowiedź na adres podany w formularzu.</p></div>
     <label class="switch"><input type="checkbox" name="confirm_enabled" value="1" {{if $d.ConfirmEnabled}}checked{{end}}><span></span>Wysyłaj</label>
   </div>
-  <div class="note warn">Adres wpisuje dowolna osoba. Nie wklejaj do potwierdzenia treści pól od użytkownika (np. wiadomości) — spamer mógłby wysyłać przez Ciebie własne treści do obcych ludzi.</div>
+  <div class="note warn">Adres wpisuje dowolna osoba. Nie wklejaj do potwierdzenia treści pól od użytkownika (np. wiadomości), bo spamer mógłby wysyłać przez Ciebie własne treści do obcych ludzi.</div>
   <div class="grid3">
     <label class="field">Pole z adresem<input name="confirm_to_field" value="{{$d.ConfirmToField}}" maxlength="64"></label>
     <label class="field">Limit na adres / 24 h<input name="confirm_per_recipient_day" value="{{$d.ConfirmPerRecipientDay}}" inputmode="numeric"></label>
     <label class="field">Temat<input name="confirm_subject" value="{{$d.ConfirmSubject}}" maxlength="500"></label>
   </div>
   <div class="grid2">
-    <label class="field">Treść tekstowa<small>Szablon Go.</small><textarea name="confirm_text" rows="6">{{$d.ConfirmText}}</textarea></label>
-    <label class="field">Treść HTML<small>Opcjonalna; wartości są escapowane.</small><textarea name="confirm_html" rows="6">{{$d.ConfirmHTML}}</textarea></label>
+    <label class="field">Treść tekstowa<small>Szablon Go.</small><textarea class="code" name="confirm_text" rows="6">{{$d.ConfirmText}}</textarea></label>
+    <label class="field">Treść HTML<small>Opcjonalna; wartości są escapowane.</small><textarea class="code" name="confirm_html" rows="6">{{$d.ConfirmHTML}}</textarea></label>
   </div>
 </section>
 

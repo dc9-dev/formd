@@ -19,6 +19,7 @@ import (
 	"github.com/dc9-dev/formd/internal/antispam"
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/store"
 )
 
@@ -305,5 +306,165 @@ func TestNoJSFallbackRedirect(t *testing.T) {
 	w = e.do("POST", "/f/contact", valid("", ""), map[string]string{"Accept": "text/html"})
 	if w.Code != 303 || !strings.HasPrefix(w.Header().Get("Location"), "https://example.com/err.html?status=400") {
 		t.Fatalf("error redirect: %d %s", w.Code, w.Header().Get("Location"))
+	}
+}
+
+type fakeJev struct {
+	a     jev.Assessment
+	calls int
+	seen  []jev.Field
+}
+
+func (f *fakeJev) Assess(_ context.Context, _ string, fields []jev.Field, threshold float64) jev.Assessment {
+	f.calls++
+	f.seen = fields
+	a := f.a
+	if a.Error == "" {
+		a.Flagged = a.Risk >= threshold
+	}
+	return a
+}
+
+func jevEnv(t *testing.T, action string, holdOnError bool, a jev.Assessment) (*env, *fakeJev) {
+	e := newEnv(t, func(d *forms.Definition) {
+		d.JevEnabled, d.JevAction, d.JevThreshold, d.JevHoldOnError = true, action, 70, holdOnError
+	})
+	fj := &fakeJev{a: a}
+	e.pub.Jev = fj
+	e.pub.Cfg.Jev.DailyBudgetUSD = 1
+	return e, fj
+}
+
+func (e *env) submit() *httptest.ResponseRecorder {
+	tok, pow := e.token()
+	return e.do("POST", "/f/contact", valid(tok, pow), nil)
+}
+
+func (e *env) subs() []store.Submission {
+	s, err := e.store.ListSubmissions(context.Background(), "contact", time.Unix(0, 0), 10, 0)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return s
+}
+
+func (e *env) outbox(status string) []store.OutboxItem {
+	items, err := e.store.RecentOutbox(context.Background(), status, 100)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return items
+}
+
+func TestJevHoldAndRelease(t *testing.T) {
+	e, fj := jevEnv(t, forms.JevHold, false, jev.Assessment{Category: "other", Spam: 0.92, Risk: 0.92, Cost: 0.00002})
+	if w := e.submit(); w.Code != 200 {
+		t.Fatalf("held submission must look accepted: %d", w.Code)
+	}
+	subs := e.subs()
+	if len(subs) != 1 || subs[0].Status != store.StatusHeld || subs[0].Assessment == nil || !subs[0].Assessment.Flagged {
+		t.Fatalf("not held: %+v", subs)
+	}
+	if n := len(e.outbox("held")); n != 2 || len(e.outbox("pending")) != 0 {
+		t.Fatalf("mails must wait: held=%d", n)
+	}
+	for _, f := range fj.seen {
+		if f.Email && f.Value == "" {
+			t.Fatal("email field should be passed (assessor reduces it to a domain)")
+		}
+	}
+	spent, _ := e.store.JevSpent(context.Background(), e.now)
+	if spent != 0.00002 {
+		t.Fatalf("usage not recorded: %v", spent)
+	}
+
+	ok, err := e.store.ReleaseSubmission(context.Background(), "contact", subs[0].ID, e.now)
+	if err != nil || !ok {
+		t.Fatalf("release: %v %v", ok, err)
+	}
+	if n := len(e.outbox("pending")); n != 2 {
+		t.Fatalf("released mails not queued: %d", n)
+	}
+	if e.subs()[0].Status != store.StatusOK {
+		t.Fatal("status not updated")
+	}
+}
+
+func TestJevTagMarksSubject(t *testing.T) {
+	e, _ := jevEnv(t, forms.JevTag, false, jev.Assessment{Category: "offer", Scam: 0.8, Risk: 0.8})
+	e.submit()
+	if e.subs()[0].Status != store.StatusOK {
+		t.Fatal("tag must not hold")
+	}
+	var notify *store.OutboxItem
+	for _, it := range e.outbox("pending") {
+		if it.Kind == "notify" {
+			notify = &it
+		}
+	}
+	if notify == nil || !strings.HasPrefix(notify.Subject, "[SPAM?] ") || !strings.Contains(notify.Text, "Ocena treści (Jev)") {
+		t.Fatalf("notify not marked: %+v", notify)
+	}
+}
+
+func TestJevDropDiscards(t *testing.T) {
+	e, _ := jevEnv(t, forms.JevDrop, false, jev.Assessment{Abusive: 0.95, Risk: 0.95})
+	if w := e.submit(); w.Code != 200 || !strings.Contains(w.Body.String(), `"ok":true`) {
+		t.Fatalf("drop must look like success: %d", w.Code)
+	}
+	if len(e.subs()) != 0 || len(e.outbox("")) != 0 {
+		t.Fatal("dropped submission was stored")
+	}
+}
+
+func TestJevBelowThresholdPasses(t *testing.T) {
+	e, _ := jevEnv(t, forms.JevHold, false, jev.Assessment{Category: "question", Spam: 0.1, Risk: 0.1})
+	e.submit()
+	if s := e.subs(); len(s) != 1 || s[0].Status != store.StatusOK {
+		t.Fatalf("clean message held: %+v", s)
+	}
+}
+
+func TestJevFailurePolicy(t *testing.T) {
+	// Fail open by default.
+	e, _ := jevEnv(t, forms.JevHold, false, jev.Assessment{Error: "jev: timeout"})
+	e.submit()
+	if s := e.subs(); len(s) != 1 || s[0].Status != store.StatusOK || s[0].Assessment.Error == "" {
+		t.Fatalf("fail-open: %+v", s)
+	}
+	// Hold when configured.
+	e2, _ := jevEnv(t, forms.JevHold, true, jev.Assessment{Error: "jev: timeout"})
+	e2.submit()
+	if s := e2.subs(); len(s) != 1 || s[0].Status != store.StatusHeld {
+		t.Fatalf("hold-on-error: %+v", s)
+	}
+}
+
+func TestJevBudgetAndCheapFiltersFirst(t *testing.T) {
+	e, fj := jevEnv(t, forms.JevHold, false, jev.Assessment{Risk: 0.1})
+	// Honeypot spam is rejected before Jev is called.
+	tok, pow := e.token()
+	v := valid(tok, pow)
+	v.Set("website", "x")
+	e.do("POST", "/f/contact", v, nil)
+	if fj.calls != 0 {
+		t.Fatal("Jev called for honeypot spam")
+	}
+	// Exhausted budget: Jev is not called, submission is accepted unassessed.
+	e.store.AddJevUsage(context.Background(), e.now, 5, false)
+	e.submit()
+	if fj.calls != 0 {
+		t.Fatal("Jev called over budget")
+	}
+	if s := e.subs(); len(s) != 1 || s[0].Assessment == nil || !strings.Contains(s[0].Assessment.Error, "budżet") {
+		t.Fatalf("budget: %+v", s)
+	}
+}
+
+func TestJevNotConfigured(t *testing.T) {
+	e := newEnv(t, func(d *forms.Definition) { d.JevEnabled = true })
+	e.submit()
+	if s := e.subs(); len(s) != 1 || s[0].Status != store.StatusOK || s[0].Assessment == nil || s[0].Assessment.Error == "" {
+		t.Fatalf("missing key must fail open and be visible: %+v", s)
 	}
 }

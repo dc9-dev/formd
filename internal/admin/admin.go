@@ -11,6 +11,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -23,6 +24,7 @@ import (
 	"github.com/dc9-dev/formd/internal/antispam"
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/netutil"
 	"github.com/dc9-dev/formd/internal/store"
 )
@@ -43,17 +45,45 @@ type Admin struct {
 	Store *store.Store
 	Forms *forms.Registry
 	Log   *slog.Logger
+	// Wake nudges the mail worker after a held submission is released.
+	Wake func()
 
 	limiter *antispam.Limiter
 	pages   map[string]*template.Template
 }
 
 func New(cfg *config.Config, st *store.Store, reg *forms.Registry, log *slog.Logger) (*Admin, error) {
-	a := &Admin{Cfg: cfg, Store: st, Forms: reg, Log: log, limiter: antispam.NewLimiter(10_000), pages: map[string]*template.Template{}}
+	a := &Admin{Cfg: cfg, Store: st, Forms: reg, Log: log, limiter: antispam.NewLimiter(10_000), pages: map[string]*template.Template{}, Wake: func() {}}
 	funcs := template.FuncMap{
 		"time":  func(t time.Time) string { return t.Local().Format("2006-01-02 15:04") },
 		"lines": func(v []string) string { return strings.Join(v, "\n") },
 		"add":   func(a, b int) int { return a + b },
+		"pct":   func(v float64) string { return fmt.Sprintf("%.0f%%", v*100) },
+		"usd": func(v float64) string {
+			if v > 0 && v < 0.01 {
+				return fmt.Sprintf("%.5f", v)
+			}
+			return fmt.Sprintf("%.2f", v)
+		},
+		"catLabel": jev.CategoryLabel,
+		"riskClass": func(v float64) string {
+			switch {
+			case v >= 0.7:
+				return "red"
+			case v >= 0.4:
+				return "amber"
+			}
+			return "green"
+		},
+		"jevAction": func(a string) string {
+			switch a {
+			case forms.JevTag:
+				return "oznacz"
+			case forms.JevDrop:
+				return "odrzuć"
+			}
+			return "wstrzymaj"
+		},
 		"initial": func(s string) string {
 			for _, r := range s {
 				return strings.ToUpper(string(r))
@@ -99,6 +129,7 @@ func (a *Admin) Handler() http.Handler {
 	mux.Handle("GET /forms/{id}/snippet", a.auth(a.snippet))
 	mux.Handle("GET /forms/{id}/submissions", a.auth(a.submissions))
 	mux.Handle("POST /forms/{id}/submissions/{sid}/delete", a.auth(a.deleteSubmission))
+	mux.Handle("POST /forms/{id}/submissions/{sid}/release", a.auth(a.releaseSubmission))
 	mux.Handle("GET /forms/{id}/export.csv", a.auth(a.exportCSV))
 	mux.Handle("GET /outbox", a.auth(a.outbox))
 	mux.Handle("POST /outbox/{oid}/retry", a.auth(a.retry))
@@ -117,7 +148,7 @@ func (a *Admin) Handler() http.Handler {
 func headers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
-		h.Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		h.Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("X-Content-Type-Options", "nosniff")
 		// same-origin, not no-referrer: with no-referrer some browsers send
@@ -272,6 +303,7 @@ var flashes = map[string]string{
 	"created":  "Utworzono formularz. Uzupełnij konfigurację i włącz go.",
 	"deleted":  "Usunięto.",
 	"requeued": "Wiadomość wróciła do kolejki.",
+	"released": "Zgłoszenie zatwierdzone — maile trafiły do kolejki.",
 	"password": "Hasło zmienione. Zaloguj się ponownie.",
 }
 

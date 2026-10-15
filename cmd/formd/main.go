@@ -26,6 +26,7 @@ import (
 	"github.com/dc9-dev/formd/internal/antispam"
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/mail"
 	"github.com/dc9-dev/formd/internal/server"
 	"github.com/dc9-dev/formd/internal/store"
@@ -152,6 +153,13 @@ func serve(cfg *config.Config, log *slog.Logger) error {
 	}()
 
 	pub := &server.Public{Cfg: cfg, Forms: reg, Store: st, Challenger: chal, Limiter: limiter, Wake: w.Wake, Log: log}
+	if cfg.Jev.Enabled() {
+		pub.Jev = &jev.Client{
+			URL: cfg.Jev.URL, APIKey: cfg.Jev.APIKey, Model: cfg.Jev.Model, Timeout: cfg.Jev.Timeout,
+			HTTP: &http.Client{Timeout: cfg.Jev.Timeout + time.Second},
+		}
+		log.Info("jev content assessment available", "model", cfg.Jev.Model, "daily_budget_usd", cfg.Jev.DailyBudgetUSD)
+	}
 	servers := []*http.Server{newServer(cfg.ListenAddr, pub.Handler(), log)}
 
 	if cfg.AdminEnabled() {
@@ -159,6 +167,7 @@ func serve(cfg *config.Config, log *slog.Logger) error {
 		if err != nil {
 			return err
 		}
+		adm.Wake = w.Wake
 		servers = append(servers, newServer(cfg.AdminListenAddr, adm.Handler(), log))
 		if n, _ := st.CountUsers(ctx); n == 0 {
 			log.Warn("no admin users yet; create one with: formd user add <login>")

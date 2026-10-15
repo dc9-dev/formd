@@ -15,6 +15,13 @@ import (
 	"unicode/utf8"
 )
 
+// What to do with a submission Jev flags as risky.
+const (
+	JevTag  = "tag"  // deliver, mark in panel and subject
+	JevHold = "hold" // store, keep mails until approved in the panel
+	JevDrop = "drop" // silently discard like other spam
+)
+
 const (
 	TypeText     = "text"
 	TypeTextarea = "textarea"
@@ -80,6 +87,13 @@ type Definition struct {
 	ConfirmHTML            string   `json:"confirm_html"`
 	ConfirmPerRecipientDay int      `json:"confirm_per_recipient_day"`
 
+	// Content assessment with Jev (sends field values to OpenRouter).
+	JevEnabled     bool   `json:"jev_enabled"`
+	JevContext     string `json:"jev_context"`       // what the site is about; improves judgement
+	JevAction      string `json:"jev_action"`        // tag | hold | drop
+	JevThreshold   int    `json:"jev_threshold"`     // risk in percent at which a submission is flagged
+	JevHoldOnError bool   `json:"jev_hold_on_error"` // hold submissions that could not be assessed
+
 	RedirectSuccess string `json:"redirect_success"`
 	RedirectError   string `json:"redirect_error"`
 }
@@ -111,6 +125,8 @@ func NewDefinition(id string) Definition {
 		ConfirmSubject:         "Dziękujemy za wiadomość",
 		ConfirmText:            "Dzień dobry,\n\notrzymaliśmy Twoją wiadomość i odpowiemy najszybciej, jak to możliwe.\n",
 		ConfirmPerRecipientDay: 2,
+		JevAction:              JevHold,
+		JevThreshold:           70,
 	}
 }
 
@@ -308,6 +324,25 @@ func Compile(d Definition) (*Form, error) {
 			add("treść HTML potwierdzenia: %v", err)
 		}
 		f.confirmHTML = t
+	}
+
+	// Content assessment.
+	d.JevContext = strings.TrimSpace(d.JevContext)
+	if utf8.RuneCountInString(d.JevContext) > 300 {
+		add("opis strony dla Jev: max 300 znaków")
+	}
+	switch d.JevAction {
+	case JevTag, JevHold, JevDrop:
+	case "":
+		d.JevAction = JevHold
+	default:
+		add("Jev: nieznana akcja %q", d.JevAction)
+	}
+	if d.JevThreshold == 0 {
+		d.JevThreshold = 70
+	}
+	if d.JevThreshold < 1 || d.JevThreshold > 100 {
+		add("Jev: próg ryzyka musi być w zakresie 1–100%%")
 	}
 
 	for _, r := range []struct{ name, v string }{{"przekierowanie po sukcesie", d.RedirectSuccess}, {"przekierowanie po błędzie", d.RedirectError}} {

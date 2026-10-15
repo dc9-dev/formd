@@ -80,6 +80,7 @@ func (a *Admin) logout(w http.ResponseWriter, r *http.Request, s *store.Session)
 type dashRow struct {
 	Def   forms.Definition
 	Count int
+	Held  int
 	Live  bool
 }
 
@@ -100,19 +101,31 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request, s *store.Sessi
 		a.serverError(w, err)
 		return
 	}
+	held, err := a.Store.CountHeld(ctx)
+	if err != nil {
+		a.serverError(w, err)
+		return
+	}
+	jevSpent, err := a.Store.JevSpent(ctx, time.Now())
+	if err != nil {
+		a.serverError(w, err)
+		return
+	}
 	var list []dashRow
-	total, live := 0, 0
+	total, live, heldTotal := 0, 0, 0
 	for _, fr := range rows {
 		f := a.Forms.Get(fr.Def.ID)
-		r := dashRow{Def: fr.Def, Count: counts[fr.Def.ID], Live: f != nil && f.Def.Enabled}
+		r := dashRow{Def: fr.Def, Count: counts[fr.Def.ID], Held: held[fr.Def.ID], Live: f != nil && f.Def.Enabled}
 		total += r.Count
+		heldTotal += r.Held
 		if r.Live {
 			live++
 		}
 		list = append(list, r)
 	}
 	a.render(w, r, http.StatusOK, "dashboard", view{Title: "Formularze", Session: s, Data: map[string]any{
-		"Forms": list, "Failed": len(failed), "Mailer": a.Cfg.Mailer, "Total": total, "Live": live,
+		"Forms": list, "Failed": len(failed), "Mailer": a.Cfg.Mailer, "Total": total, "Live": live, "Held": heldTotal,
+		"JevReady": a.Cfg.Jev.Enabled(), "JevSpent": jevSpent, "JevBudget": a.Cfg.Jev.DailyBudgetUSD,
 	}})
 }
 
@@ -167,9 +180,16 @@ func (a *Admin) loadDef(w http.ResponseWriter, r *http.Request) (forms.Definitio
 }
 
 type editData struct {
-	Def   forms.Definition
-	Rows  []forms.Field
-	Types []string
+	Def      forms.Definition
+	Rows     []forms.Field
+	Types    []string
+	JevReady bool
+}
+
+func (a *Admin) editView(d forms.Definition) editData {
+	v := editView(d)
+	v.JevReady = a.Cfg.Jev.Enabled()
+	return v
 }
 
 func editView(d forms.Definition) editData {
@@ -185,7 +205,7 @@ func (a *Admin) editPage(w http.ResponseWriter, r *http.Request, s *store.Sessio
 	if !ok {
 		return
 	}
-	a.render(w, r, http.StatusOK, "edit", view{Title: d.Title, Session: s, Data: editView(d)})
+	a.render(w, r, http.StatusOK, "edit", view{Title: d.Title, Session: s, Data: a.editView(d)})
 }
 
 func (a *Admin) editSubmit(w http.ResponseWriter, r *http.Request, s *store.Session) {
@@ -197,14 +217,15 @@ func (a *Admin) editSubmit(w http.ResponseWriter, r *http.Request, s *store.Sess
 	f, err := forms.Compile(d)
 	if perr != nil || err != nil {
 		errs := append(splitErr(perr), splitErr(err)...)
-		a.render(w, r, http.StatusBadRequest, "edit", view{Title: cur.Title, Session: s, Errors: errs, Data: editView(d)})
+		a.render(w, r, http.StatusBadRequest, "edit", view{Title: cur.Title, Session: s, Errors: errs, Data: a.editView(d)})
 		return
 	}
 	if err := a.Store.UpdateForm(r.Context(), f.Def); err != nil {
 		a.serverError(w, err)
 		return
 	}
-	a.audit(r, s.Username, "form_update", fmt.Sprintf("%s enabled=%t challenge=%t pow=%d rate=%d/%dm cap=%d", f.Def.ID, f.Def.Enabled, f.Def.Challenge, f.Def.PowBits, f.Def.RatePerIP, f.Def.RateWindowMin, f.Def.HourlyCap))
+	a.audit(r, s.Username, "form_update", fmt.Sprintf("%s enabled=%t challenge=%t pow=%d rate=%d/%dm cap=%d", f.Def.ID, f.Def.Enabled, f.Def.Challenge, f.Def.PowBits, f.Def.RatePerIP, f.Def.RateWindowMin, f.Def.HourlyCap)+
+		fmt.Sprintf(" jev=%t/%s/%d%%", f.Def.JevEnabled, f.Def.JevAction, f.Def.JevThreshold))
 	if err := a.reloadForms(r.Context()); err != nil {
 		a.serverError(w, err)
 		return
@@ -252,6 +273,11 @@ func parseDefinition(v url.Values, id string) (forms.Definition, error) {
 		ConfirmText:            strings.ReplaceAll(v.Get("confirm_text"), "\r\n", "\n"),
 		ConfirmHTML:            strings.ReplaceAll(v.Get("confirm_html"), "\r\n", "\n"),
 		ConfirmPerRecipientDay: num("confirm_per_recipient_day", "limit potwierdzeń"),
+		JevEnabled:             v.Get("jev_enabled") == "1",
+		JevContext:             v.Get("jev_context"),
+		JevAction:              v.Get("jev_action"),
+		JevThreshold:           num("jev_threshold", "próg Jev"),
+		JevHoldOnError:         v.Get("jev_hold_on_error") == "1",
 		RedirectSuccess:        v.Get("redirect_success"),
 		RedirectError:          v.Get("redirect_error"),
 	}
@@ -373,9 +399,18 @@ func (a *Admin) submissions(w http.ResponseWriter, r *http.Request, s *store.Ses
 	if !ok {
 		return
 	}
+	status := r.URL.Query().Get("status")
+	if status != store.StatusHeld {
+		status = ""
+	}
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	page = max(page, 0)
-	subs, err := a.Store.ListSubmissions(r.Context(), d.ID, time.Unix(0, 0), pageSize+1, page*pageSize)
+	subs, err := a.Store.ListSubmissionsByStatus(r.Context(), d.ID, status, time.Unix(0, 0), pageSize+1, page*pageSize)
+	if err != nil {
+		a.serverError(w, err)
+		return
+	}
+	held, err := a.Store.CountHeld(r.Context())
 	if err != nil {
 		a.serverError(w, err)
 		return
@@ -385,8 +420,22 @@ func (a *Admin) submissions(w http.ResponseWriter, r *http.Request, s *store.Ses
 		subs = subs[:pageSize]
 	}
 	a.render(w, r, http.StatusOK, "submissions", view{Title: "Zgłoszenia: " + d.Title, Session: s, Data: map[string]any{
-		"Def": d, "Subs": subs, "Page": page, "More": more,
+		"Def": d, "Subs": subs, "Page": page, "More": more, "Status": status, "Held": held[d.ID],
 	}})
+}
+
+func (a *Admin) releaseSubmission(w http.ResponseWriter, r *http.Request, s *store.Session) {
+	id, sid := r.PathValue("id"), r.PathValue("sid")
+	ok, err := a.Store.ReleaseSubmission(r.Context(), id, sid, time.Now())
+	if err != nil {
+		a.serverError(w, err)
+		return
+	}
+	if ok {
+		a.audit(r, s.Username, "submission_release", id+"/"+sid)
+		a.Wake()
+	}
+	http.Redirect(w, r, "/forms/"+url.PathEscape(id)+"/submissions?status=held&ok=released", http.StatusSeeOther)
 }
 
 func (a *Admin) deleteSubmission(w http.ResponseWriter, r *http.Request, s *store.Session) {
@@ -396,7 +445,11 @@ func (a *Admin) deleteSubmission(w http.ResponseWriter, r *http.Request, s *stor
 		return
 	}
 	a.audit(r, s.Username, "submission_delete", id+"/"+sid)
-	http.Redirect(w, r, "/forms/"+url.PathEscape(id)+"/submissions?ok=deleted", http.StatusSeeOther)
+	back := "/forms/" + url.PathEscape(id) + "/submissions?ok=deleted"
+	if r.PostForm.Get("from") == store.StatusHeld {
+		back += "&status=held"
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // csvSafe neutralises spreadsheet formula injection (=, +, -, @, tab, CR).
@@ -451,7 +504,7 @@ func WriteCSV(cw *csv.Writer, d forms.Definition, subs []store.Submission) error
 func (a *Admin) outbox(w http.ResponseWriter, r *http.Request, s *store.Session) {
 	status := r.URL.Query().Get("status")
 	switch status {
-	case "", "pending", "sent", "failed":
+	case "", "pending", "sent", "failed", "held":
 	default:
 		status = ""
 	}

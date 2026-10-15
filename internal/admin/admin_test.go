@@ -16,6 +16,7 @@ import (
 
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/store"
 )
 
@@ -208,5 +209,40 @@ func TestCSVSafe(t *testing.T) {
 		if got := csvSafe(in); got != want {
 			t.Errorf("%q → %q", in, got)
 		}
+	}
+}
+
+func TestReleaseHeldSubmission(t *testing.T) {
+	c, st, _ := setup(t)
+	ctx := context.Background()
+	d := forms.NewDefinition("kontakt")
+	d.AllowedOrigins = []string{"https://example.com"}
+	f, err := forms.Compile(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.CreateForm(ctx, f.Def)
+	sub := store.Submission{
+		ID: store.NewID(), FormID: "kontakt", Data: map[string]string{"message": "<b>kup teraz</b>"},
+		Status: store.StatusHeld, CreatedAt: time.Now(),
+		Assessment: &jev.Assessment{Category: "other", Spam: 0.9, Risk: 0.9, Flagged: true},
+	}
+	if err := st.SaveSubmission(ctx, sub, []store.OutMail{{Kind: "notify", To: "a@example.com", Subject: "s", Text: "t"}}, "", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	c.login("correct horse battery")
+	page := c.req("GET", "/forms/kontakt/submissions?status=held", nil, nil).Body.String()
+	if !strings.Contains(page, "spam 90%") || strings.Contains(page, "<b>kup teraz</b>") {
+		t.Fatalf("assessment missing or content not escaped")
+	}
+	path := "/forms/kontakt/submissions/" + sub.ID + "/release"
+	if w := c.req("POST", path, url.Values{}, nil); w.Code != 403 {
+		t.Fatalf("release without CSRF: %d", w.Code)
+	}
+	if w := c.req("POST", path, url.Values{"csrf": {c.csrf()}}, nil); w.Code != 303 {
+		t.Fatalf("release: %d", w.Code)
+	}
+	if items, _ := st.RecentOutbox(ctx, "pending", 10); len(items) != 1 {
+		t.Fatalf("mail not queued after release: %d", len(items))
 	}
 }

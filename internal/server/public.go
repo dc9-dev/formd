@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/dc9-dev/formd/internal/antispam"
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/netutil"
 	"github.com/dc9-dev/formd/internal/store"
 )
@@ -33,6 +35,14 @@ type Public struct {
 	Wake       func()
 	Log        *slog.Logger
 	Now        func() time.Time
+
+	// Jev assesses message content; nil when OPENROUTER_API_KEY is not set.
+	Jev Assessor
+}
+
+// Assessor rates submission content (implemented by *jev.Client).
+type Assessor interface {
+	Assess(ctx context.Context, siteContext string, fields []jev.Field, threshold float64) jev.Assessment
 }
 
 // Handler returns the full public handler, including the IP allowlist.
@@ -266,7 +276,27 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	mails, err := p.buildMails(ctx, f, res.Values, now)
+	// Content assessment runs last, after every cheap filter, so bots that
+	// are caught earlier never cost a paid Jev call.
+	var assessment *jev.Assessment
+	status := store.StatusOK
+	if f.Def.JevEnabled {
+		a := p.assess(ctx, f, res.Values, now)
+		assessment = &a
+		switch {
+		case a.Error != "":
+			if f.Def.JevHoldOnError {
+				status = store.StatusHeld
+			}
+		case a.Flagged && f.Def.JevAction == forms.JevDrop:
+			fakeOK(fmt.Sprintf("jev: risk %.2f", a.Risk))
+			return
+		case a.Flagged && f.Def.JevAction == forms.JevHold:
+			status = store.StatusHeld
+		}
+	}
+
+	mails, err := p.buildMails(ctx, f, res.Values, now, assessment)
 	if err != nil {
 		p.internal(w, r, f, wantJSON, err)
 		return
@@ -274,6 +304,7 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 	sub := store.Submission{
 		ID: store.NewID(), FormID: id, Data: res.Values, ContentHash: hash,
 		IP: ip, UserAgent: forms.CleanHeader(r.UserAgent(), 300), CreatedAt: now,
+		Status: status, Assessment: assessment,
 	}
 	if err := p.Store.SaveSubmission(ctx, sub, mails, nonce, nonceExp); err != nil {
 		if errors.Is(err, store.ErrReplay) {
@@ -284,19 +315,57 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 		p.internal(w, r, f, wantJSON, err)
 		return
 	}
-	p.Log.Info("submission accepted", "form", id, "id", sub.ID, "ip", ip, "mails", len(mails))
+	p.Log.Info("submission accepted", "form", id, "id", sub.ID, "ip", ip, "mails", len(mails), "status", status)
 	if p.Wake != nil {
 		p.Wake()
 	}
 	p.succeed(w, r, f, wantJSON, sub.ID)
 }
 
-func (p *Public) buildMails(ctx context.Context, f *forms.Form, values map[string]string, now time.Time) ([]store.OutMail, error) {
+// assess runs Jev within the daily budget. It never fails the submission:
+// problems are reported in Assessment.Error and the form's policy decides.
+func (p *Public) assess(ctx context.Context, f *forms.Form, values map[string]string, now time.Time) jev.Assessment {
+	if p.Jev == nil {
+		return jev.Assessment{Error: "Jev nie jest skonfigurowany (brak OPENROUTER_API_KEY)"}
+	}
+	spent, err := p.Store.JevSpent(ctx, now)
+	if err != nil {
+		return jev.Assessment{Error: "nie udało się odczytać budżetu Jev"}
+	}
+	if spent >= p.Cfg.Jev.DailyBudgetUSD {
+		p.Log.Warn("jev daily budget exhausted", "spent_usd", spent, "budget_usd", p.Cfg.Jev.DailyBudgetUSD)
+		return jev.Assessment{Error: "dzienny budżet Jev wyczerpany"}
+	}
+	var fields []jev.Field
+	for _, fl := range f.Def.Fields {
+		if v := values[fl.Name]; v != "" {
+			fields = append(fields, jev.Field{Label: fl.Label, Email: fl.Type == forms.TypeEmail, Value: v})
+		}
+	}
+	a := p.Jev.Assess(ctx, f.Def.JevContext, fields, float64(f.Def.JevThreshold)/100)
+	if err := p.Store.AddJevUsage(context.WithoutCancel(ctx), now, a.Cost, a.Error != ""); err != nil {
+		p.Log.Error("jev usage not recorded", "err", err)
+	}
+	if a.Error != "" {
+		p.Log.Warn("jev assessment failed", "form", f.Def.ID, "err", a.Error)
+	} else {
+		p.Log.Info("jev assessed", "form", f.Def.ID, "category", a.Category, "risk", a.Risk, "flagged", a.Flagged, "ms", a.Ms, "cost_usd", a.Cost)
+	}
+	return a
+}
+
+func (p *Public) buildMails(ctx context.Context, f *forms.Form, values map[string]string, now time.Time, a *jev.Assessment) ([]store.OutMail, error) {
 	var out []store.OutMail
 	if len(f.Def.Notify) > 0 {
 		n, err := f.RenderNotify(values)
 		if err != nil {
 			return nil, err
+		}
+		if a != nil {
+			n.Text += "---\nOcena treści (Jev): " + a.Summary() + "\n"
+			if a.Flagged {
+				n.Subject = "[SPAM?] " + n.Subject
+			}
 		}
 		replyTo := ""
 		if f.Def.ReplyToField != "" {

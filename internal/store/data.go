@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/jev"
 )
 
 // ---- forms ----
@@ -112,7 +113,15 @@ type Submission struct {
 	IP          string
 	UserAgent   string
 	CreatedAt   time.Time
+	// Status is "ok" or "held" (waiting for approval; its mails are not sent).
+	Status     string
+	Assessment *jev.Assessment // nil when not assessed
 }
+
+const (
+	StatusOK   = "ok"
+	StatusHeld = "held"
+)
 
 type OutMail struct {
 	Kind    string // notify | confirm
@@ -142,16 +151,28 @@ func (s *Store) SaveSubmission(ctx context.Context, sub Submission, mails []OutM
 		}
 	}
 	now := sub.CreatedAt.Unix()
+	status, mailStatus := StatusOK, "pending"
+	if sub.Status == StatusHeld {
+		status, mailStatus = StatusHeld, StatusHeld
+	}
+	assessment := ""
+	if sub.Assessment != nil {
+		b, err := json.Marshal(sub.Assessment)
+		if err != nil {
+			return err
+		}
+		assessment = string(b)
+	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO submissions(id, form_id, data, content_hash, ip, user_agent, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`,
-		sub.ID, sub.FormID, string(data), sub.ContentHash, sub.IP, sub.UserAgent, now); err != nil {
+		`INSERT INTO submissions(id, form_id, data, content_hash, ip, user_agent, created_at, status, assessment) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		sub.ID, sub.FormID, string(data), sub.ContentHash, sub.IP, sub.UserAgent, now, status, assessment); err != nil {
 		return err
 	}
 	for _, m := range mails {
 		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO outbox(submission_id, form_id, kind, to_addr, reply_to, subject, body_text, body_html, next_attempt_at, created_at)
-			 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			sub.ID, sub.FormID, m.Kind, m.To, m.ReplyTo, m.Subject, m.Text, m.HTML, now, now); err != nil {
+			`INSERT INTO outbox(submission_id, form_id, kind, to_addr, reply_to, subject, body_text, body_html, status, next_attempt_at, created_at)
+			 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			sub.ID, sub.FormID, m.Kind, m.To, m.ReplyTo, m.Subject, m.Text, m.HTML, mailStatus, now, now); err != nil {
 			return err
 		}
 	}
@@ -207,10 +228,21 @@ func (s *Store) CountMailsTo(ctx context.Context, kind, to string, since time.Ti
 }
 
 func (s *Store) ListSubmissions(ctx context.Context, formID string, since time.Time, limit, offset int) ([]Submission, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, form_id, data, content_hash, ip, user_agent, created_at FROM submissions
-		 WHERE form_id = ? AND created_at >= ? ORDER BY created_at DESC, id LIMIT ? OFFSET ?`,
-		formID, since.Unix(), limit, offset)
+	return s.ListSubmissionsByStatus(ctx, formID, "", since, limit, offset)
+}
+
+// ListSubmissionsByStatus lists newest first; status "" means all.
+func (s *Store) ListSubmissionsByStatus(ctx context.Context, formID, status string, since time.Time, limit, offset int) ([]Submission, error) {
+	q := `SELECT id, form_id, data, content_hash, ip, user_agent, created_at, status, assessment FROM submissions
+		 WHERE form_id = ? AND created_at >= ?`
+	args := []any{formID, since.Unix()}
+	if status != "" {
+		q += ` AND status = ?`
+		args = append(args, status)
+	}
+	q += ` ORDER BY created_at DESC, id LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -218,16 +250,110 @@ func (s *Store) ListSubmissions(ctx context.Context, formID string, since time.T
 	var out []Submission
 	for rows.Next() {
 		var sub Submission
-		var data string
+		var data, assessment string
 		var ts int64
-		if err := rows.Scan(&sub.ID, &sub.FormID, &data, &sub.ContentHash, &sub.IP, &sub.UserAgent, &ts); err != nil {
+		if err := rows.Scan(&sub.ID, &sub.FormID, &data, &sub.ContentHash, &sub.IP, &sub.UserAgent, &ts, &sub.Status, &assessment); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(data), &sub.Data); err != nil {
 			return nil, err
 		}
+		if assessment != "" {
+			var a jev.Assessment
+			if err := json.Unmarshal([]byte(assessment), &a); err == nil {
+				sub.Assessment = &a
+			}
+		}
 		sub.CreatedAt = time.Unix(ts, 0)
 		out = append(out, sub)
+	}
+	return out, rows.Err()
+}
+
+// ReleaseSubmission approves a held submission and queues its mails.
+func (s *Store) ReleaseSubmission(ctx context.Context, formID, id string, now time.Time) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE submissions SET status = 'ok' WHERE form_id = ? AND id = ? AND status = 'held'`, formID, id)
+	if err != nil {
+		return false, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return false, nil
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE outbox SET status = 'pending', next_attempt_at = ? WHERE submission_id = ? AND status = 'held'`, now.Unix(), id); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
+}
+
+// CountHeld returns held submissions per form.
+func (s *Store) CountHeld(ctx context.Context) (map[string]int, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT form_id, COUNT(*) FROM submissions WHERE status = 'held' GROUP BY form_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}
+
+// ---- Jev budget ----
+
+// JevSpent returns today's Jev spending in USD (day in the server's time zone).
+func (s *Store) JevSpent(ctx context.Context, now time.Time) (float64, error) {
+	var cost float64
+	err := s.db.QueryRowContext(ctx, `SELECT cost FROM jev_usage WHERE day = ?`, now.Format(time.DateOnly)).Scan(&cost)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return cost, err
+}
+
+// AddJevUsage records one Jev call.
+func (s *Store) AddJevUsage(ctx context.Context, now time.Time, cost float64, failed bool) error {
+	fail := 0
+	if failed {
+		fail = 1
+	}
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO jev_usage(day, calls, failures, cost) VALUES(?, 1, ?, ?)
+		 ON CONFLICT(day) DO UPDATE SET calls = calls + 1, failures = failures + excluded.failures, cost = cost + excluded.cost`,
+		now.Format(time.DateOnly), fail, cost)
+	return err
+}
+
+type JevDay struct {
+	Day      string
+	Calls    int
+	Failures int
+	Cost     float64
+}
+
+func (s *Store) JevUsage(ctx context.Context, days int) ([]JevDay, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT day, calls, failures, cost FROM jev_usage ORDER BY day DESC LIMIT ?`, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []JevDay
+	for rows.Next() {
+		var d JevDay
+		if err := rows.Scan(&d.Day, &d.Calls, &d.Failures, &d.Cost); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
 	}
 	return out, rows.Err()
 }

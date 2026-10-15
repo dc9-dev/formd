@@ -42,6 +42,47 @@ Każdy formularz ma własne ustawienia w panelu:
 5. **Filtry treści:** honeypot, maksymalna liczba linków, lista zablokowanych fraz, odrzucanie duplikatów.
 6. **Ciche odrzucanie:** spam i duplikaty dostają udawany sukces, więc bot nie wie, który filtr go złapał.
 7. **Logi pod fail2ban:** gotowy filtr w `deploy/fail2ban-filter.conf`.
+8. **Ocena treści przez Jev** (opcjonalna) — opis niżej.
+
+## Ocena treści (Jev)
+
+Opcjonalnie formd może oceniać treść wiadomości modelem [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) (TypeSafe) przez OpenRouter. Jev nie generuje tekstu — zwraca skalibrowane prawdopodobieństwa dla z góry zdefiniowanych pytań. Dla każdego zgłoszenia formd pyta o:
+
+| Pytanie | Typ | Wynik |
+| --- | --- | --- |
+| Cel wiadomości | `choice` | pytanie / zamówienie-oferta / reklamacja / opinia / inne |
+| Spam (reklama, SEO, mass mailing, treść niezwiązana ze stroną) | `noul` | prawdopodobieństwo 0–100% |
+| Oszustwo / phishing | `noul` | prawdopodobieństwo 0–100% |
+| Treść obraźliwa | `noul` | prawdopodobieństwo 0–100% |
+| Pilność | `score` | 1–5 |
+
+**Ryzyko** = max(spam, oszustwo, obraźliwe). Gdy przekroczy próg ustawiony w panelu (domyślnie 70%), formd robi to, co wybierzesz dla formularza:
+
+- **Wstrzymaj** (domyślnie) — zgłoszenie jest zapisane, ale maile (także potwierdzenie do nadawcy) czekają, aż zatwierdzisz je w panelu w zakładce *Wstrzymane*.
+- **Oznacz** — maile wychodzą normalnie, z prefiksem `[SPAM?]` w temacie.
+- **Odrzuć** — zgłoszenie jest cicho porzucane, jak inny spam.
+
+Ocena każdego zgłoszenia jest widoczna w panelu i dopisana do maila z powiadomieniem.
+
+**Bezpieczeństwo i koszty:**
+
+- Jev jest pytany **dopiero po wszystkich tanich filtrach** (challenge, limity, honeypot, duplikaty), więc boty odrzucone wcześniej nic nie kosztują.
+- Pytania są stałe, po angielsku, zaszyte w kodzie. Treść od użytkownika trafia wyłącznie do `state`, w osłoniętych blokach, z adnotacją, że to niezaufane dane. Mimo to tekst może próbować sterować oceną — dlatego domyślną akcją jest *wstrzymaj*, a nie nieodwracalne *odrzuć*.
+- **Prywatność:** treść pól jest wysyłana do OpenRouter i TypeSafe. Adresy e-mail są zastępowane samą domeną. Funkcja jest wyłączona, dopóki nie ustawisz klucza i nie włączysz jej w konkretnym formularzu — uwzględnij to w polityce prywatności strony.
+- Dzienny budżet (`JEV_DAILY_BUDGET_USD`), timeout (`JEV_TIMEOUT`, domyślnie 4 s) i licznik kosztów na stronie głównej panelu. Jedno zgłoszenie kosztuje ok. 0,00002 USD.
+- Gdy Jev nie odpowie albo budżet się wyczerpie, zgłoszenie przechodzi bez oceny (fail-open); w ustawieniach formularza można zamiast tego je wstrzymywać.
+- Klucz API jest wysyłany tylko po HTTPS i nigdy nie trafia do logów ani komunikatów błędów.
+
+Konfiguracja w `.env`:
+
+```sh
+OPENROUTER_API_KEY=sk-or-...      # https://openrouter.ai/settings/keys (ustaw limit kredytów)
+JEV_MODEL=jev-1.13
+JEV_TIMEOUT=4s
+JEV_DAILY_BUDGET_USD=1
+```
+
+Potem w panelu: formularz → **Ocena treści (Jev)** → włącz, wybierz akcję i próg, dopisz jednym zdaniem, czego dotyczy strona (to poprawia trafność).
 
 ## Szybki start
 

@@ -133,6 +133,16 @@ var migrations = []string{
 		detail   TEXT NOT NULL
 	);
 	CREATE INDEX audit_ts ON audit_log(ts);`,
+	// 2: content assessment (Jev) and held submissions.
+	`ALTER TABLE submissions ADD COLUMN status TEXT NOT NULL DEFAULT 'ok';
+	ALTER TABLE submissions ADD COLUMN assessment TEXT NOT NULL DEFAULT '';
+	CREATE INDEX submissions_status ON submissions(form_id, status);
+	CREATE TABLE jev_usage (
+		day      TEXT PRIMARY KEY,
+		calls    INTEGER NOT NULL DEFAULT 0,
+		failures INTEGER NOT NULL DEFAULT 0,
+		cost     REAL NOT NULL DEFAULT 0
+	);`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

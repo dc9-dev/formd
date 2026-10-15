@@ -5,6 +5,7 @@
   <a href="/outbox?status=pending" {{if eq $st "pending"}}class="on"{{end}}>Oczekujące</a>
   <a href="/outbox?status=sent" {{if eq $st "sent"}}class="on"{{end}}>Wysłane</a>
   <a href="/outbox?status=failed" {{if eq $st "failed"}}class="on"{{end}}>Nieudane</a>
+  <a href="/outbox?status=held" {{if eq $st "held"}}class="on"{{end}}>Wstrzymane</a>
 </nav>
 <div class="panel flush">
 <table>
@@ -16,7 +17,7 @@
   <td><code>{{.FormID}}</code> <span class="muted">{{.Kind}}</span></td>
   <td>{{.To}}</td>
   <td>{{.Subject}}{{if .LastError}}<div class="err-line">{{.LastError}}</div>{{end}}</td>
-  <td><span class="pill {{if eq .Status "sent"}}green{{else if eq .Status "failed"}}red{{else}}blue{{end}}">{{.Status}}</span>{{if .Attempts}} <span class="muted">×{{.Attempts}}</span>{{end}}</td>
+  <td><span class="tag {{if eq .Status "sent"}}green{{else if eq .Status "failed"}}red{{else if eq .Status "held"}}amber{{else}}blue{{end}}">{{.Status}}</span>{{if .Attempts}} <span class="muted">×{{.Attempts}}</span>{{end}}</td>
   <td>{{if eq .Status "failed"}}<form method="post" action="/outbox/{{.ID}}/retry"><input type="hidden" name="csrf" value="{{$csrf}}"><button class="btn small">Ponów</button></form>{{end}}</td>
 </tr>
 {{else}}<tr><td colspan="6" class="muted center">Pusto.</td></tr>{{end}}

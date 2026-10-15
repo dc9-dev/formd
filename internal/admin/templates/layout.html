@@ -10,6 +10,7 @@
 </head>
 {{if .Session}}
 <body class="app">
+<a class="skip" href="#tresc">Przejdź do treści</a>
 <aside class="side">
   <a class="logo" href="/"><img src="/static/formd-logo.png" alt="formd" width="172" height="42"></a>
   <nav class="menu">
@@ -31,7 +32,7 @@
     </form>
   </div>
 </aside>
-<main class="main">
+<main class="main" id="tresc">
   <header class="head">
     <div>
       {{block "crumbs" .}}{{end}}
@@ -41,18 +42,20 @@
   </header>
   {{if .Flash}}<div class="note ok">{{.Flash}}</div>{{end}}
   {{if .Error}}<div class="note bad">{{.Error}}</div>{{end}}
-  {{if .Errors}}<div class="note bad"><b>Nie zapisano — popraw:</b><ul>{{range .Errors}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+  {{if .Errors}}<div class="note bad"><b>Nie zapisano. Popraw:</b><ul>{{range .Errors}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
   {{template "content" .}}
 </main>
 </body>
 {{else}}
 <body class="auth">
-<main class="auth-card">
-  <img class="auth-logo" src="/static/formd-logo.png" alt="formd" width="220" height="54">
+<main class="auth-wrap">
+  <img class="auth-logo" src="/static/formd-logo-t.png" alt="formd" width="260" height="64">
   <p class="auth-sub">Panel konfiguracji formularzy</p>
-  {{if .Flash}}<div class="note ok">{{.Flash}}</div>{{end}}
-  {{if .Error}}<div class="note bad">{{.Error}}</div>{{end}}
-  {{template "content" .}}
+  <div class="auth-card">
+    {{if .Flash}}<div class="note ok">{{.Flash}}</div>{{end}}
+    {{if .Error}}<div class="note bad">{{.Error}}</div>{{end}}
+    {{template "content" .}}
+  </div>
 </main>
 </body>
 {{end}}
