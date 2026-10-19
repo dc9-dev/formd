@@ -241,3 +241,11 @@ make vet
 ```
 
 Struktura: `cmd/formd` (CLI), `internal/server` (publiczne API + `formd.js`), `internal/admin` (panel), `internal/antispam` (challenge, PoW, limity), `internal/forms` (definicje i walidacja), `internal/store` (SQLite), `internal/mail` (SMTP/SES/log), `internal/worker` (kolejka).
+
+## Licencja
+
+Copyright (C) 2026 Łukasz Sobiecki
+
+formd jest wolnym oprogramowaniem na licencji [GNU Affero General Public License v3.0](LICENSE). Możesz go używać, zmieniać i rozpowszechniać na jej warunkach. Jeśli udostępniasz zmodyfikowaną wersję innym przez sieć, musisz udostępnić im też jej kod źródłowy.
+
+Jeśli warunki AGPL Ci nie odpowiadają, na przykład chcesz wbudować formd w zamknięty produkt, zapytaj o licencję komercyjną w [zgłoszeniu na GitHubie](https://github.com/dc9-dev/formd/issues).

@@ -4,279 +4,366 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>formd · formularze dla stron statycznych, na Twoim serwerze</title>
-<meta name="description" content="formd to jedna binarka w Go obok strony statycznej: przyjmuje formularz, zapisuje do SQLite, wysyła maile przez SMTP lub SES. Proof-of-work zamiast captchy, panel dostępny tylko przez tunel SSH.">
+<meta name="description" content="formd to mały program obok strony statycznej: przyjmuje formularz, odsiewa boty, zapisuje do SQLite i wysyła maile przez SMTP lub SES. Zobacz na żywo, jak działa.">
 <link rel="canonical" href="https://formd.top/">
 <meta property="og:title" content="formd · formularze bez SaaS-u">
 <meta property="og:description" content="Jedna binarka w Go obok strony statycznej. Formularze, SQLite, SMTP lub SES, proof-of-work zamiast captchy.">
 <meta property="og:image" content="https://formd.top/assets/formd-github-social-white.png">
 <meta property="og:url" content="https://formd.top/">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#1449f5">
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/formd-icon-32.png">
 <link rel="apple-touch-icon" href="assets/formd-icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site.css">
 <script src="site.js" defer></script>
 </head>
 <body>
+<canvas class="bg" aria-hidden="true"></canvas>
+<a class="skip" href="#demo">Przejdź do pokazu</a>
 
 <nav class="nav" aria-label="Główna">
-  <a class="word" href="./"><img src="assets/formd-logo.png" alt="formd" width="132" height="33"></a>
-  <ul>
-    <li><a href="#jak">Jak działa</a></li>
-    <li><a href="#ochrona">Ochrona</a></li>
-    <li class="keep"><a href="https://github.com/dc9-dev/formd">GitHub</a></li>
-  </ul>
+  <a class="logo" href="./"><img src="assets/formd-logo-2x.png" alt="formd" width="118" height="26"></a>
+  <div class="nav-links">
+    <a href="#demo">Jak działa</a>
+    <a href="#instalacja">Instalacja</a>
+    <a href="https://github.com/dc9-dev/formd">GitHub</a>
+  </div>
 </nav>
 
 <header class="hero">
-  <div class="hero-shape" aria-hidden="true">
-    <div class="stage" data-ui><img src="assets/shot-dashboard.webp" alt="" width="2000" height="969"></div>
-  </div>
   <div class="hero-copy">
-    <h1>Formularze bez SaaS-u</h1>
-    <p>formd to jedna binarka obok Twojej strony statycznej. Przyjmuje formularz, zapisuje go w SQLite i wysyła maile przez Twój SMTP albo Amazon SES.</p>
-    <div class="row">
-      <a class="btn" href="#start">Zainstaluj
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-      <a class="plain" href="https://github.com/dc9-dev/formd">Kod na GitHubie</a>
+    <h1>Formularze dla stron statycznych, <span class="nowrap">na Twoim serwerze</span></h1>
+    <p>formd to mały program obok Twojej strony. Przyjmuje zgłoszenia, odsiewa boty, zapisuje każde zgłoszenie w bazie SQLite na Twoim serwerze i wysyła powiadomienia przez Twój SMTP albo Amazon SES. Bez SaaS-u i bez captchy.</p>
+    <div class="hero-cta">
+      <a class="btn btn-lg" href="#demo">Wypróbuj na żywo</a>
+      <a class="btn btn-lg btn-ghost" href="#instalacja">Zainstaluj</a>
     </div>
   </div>
+
+  <figure class="viz" aria-labelledby="viz-cap">
+    <div class="viz-stage" aria-hidden="true">
+      <div class="node n-site">
+        <span class="nh">strona</span>
+        <div class="mini"><i><em data-type></em></i><i></i><i class="tall"></i><b data-send>Wyślij</b></div>
+      </div>
+      <div class="node n-formd">
+        <span class="nh"><img src="assets/formd-icon-32.png" alt="" width="16" height="16">formd</span>
+        <ul class="ticks"><li data-c="token">token</li><li data-c="praca">praca</li><li data-c="limit">limit IP</li><li data-c="czas">czas</li><li data-c="pulapka">pułapka</li><li data-c="duplikat">duplikat</li></ul>
+        <span class="why"></span>
+      </div>
+      <div class="node n-inbox">
+        <span class="nh">skrzynka</span>
+        <ul class="rows"></ul>
+      </div>
+    </div>
+    <figcaption id="viz-cap">
+      <span class="tally ok">Przeszło do skrzynki <b data-pass>0</b></span>
+      <span class="tally bad">Zatrzymane boty <b data-stop>0</b></span>
+    </figcaption>
+  </figure>
 </header>
 
 <main>
 
-<section class="intro" aria-label="W skrócie">
-  <p data-rise>Strona zostaje statyczna, formularz trafia do formd <span class="frame"><img src="assets/thumb-toggle.webp" alt="przełącznik Aktywny w panelu" width="156" height="108"></span>, podejrzane wiadomości czekają <span class="frame"><img src="assets/thumb-jev.webp" alt="znacznik spam 93%" width="156" height="110"></span>, aż klikniesz <span class="frame"><img src="assets/thumb-approve.webp" alt="przycisk Zatwierdź i wyślij" width="156" height="109"></span>.</p>
-</section>
-
-<section class="pow" id="pow" aria-labelledby="pow-h">
-  <h2 id="pow-h" data-rise><span data-word>16 bitów</span> pracy</h2>
-  <p class="lede" data-rise style="--i:1">Tyle zadania SHA-256 dostaje każda przeglądarka, zanim wyśle formularz. Dla człowieka to ułamek sekundy, dla bota z tysiącem zgłoszeń już nie. Przesuń suwak i sprawdź na swoim urządzeniu.</p>
-  <p class="note" data-rise style="--i:2">Średnia liczba prób rośnie dwukrotnie z każdym bitem.</p>
-  <div class="control" data-ui>
-    <label for="bits">Trudność proof-of-work</label>
-    <div class="value" data-bits>16 <small>bitów</small></div>
-    <input id="bits" type="range" min="8" max="22" step="1" value="16">
-    <button class="btn go" type="button">Policz teraz</button>
-    <dl>
-      <div><dt>prób średnio</dt><dd data-tries>65 536</dd></div>
-      <div><dt>Twój czas</dt><dd data-time>—</dd></div>
-      <div><dt>bot × 1000</dt><dd data-bot>—</dd></div>
-    </dl>
+<section class="demo" id="demo" aria-labelledby="demo-h">
+  <div class="demo-head">
+    <h2 id="demo-h">Teraz Ty: wyślij formularz albo poślij bota</h2>
+    <p>Zobaczysz każdą kontrolę formd i to, co trafia do skrzynki.</p>
   </div>
-</section>
 
-<section class="flow" id="jak" aria-label="Jak działa"
-  data-clauses='[["Najpierw token","Przy wejściu na stronę formd.js pobiera token podpisany HMAC. Jest jednorazowy, przypisany do formularza i ważny dwie godziny."],["Potem praca","Przy wysyłce przeglądarka szuka liczby, dla której SHA-256 tokenu zaczyna się od zadanej liczby zer. Serwer sprawdza to jednym hashem."],["Potem kontrola","Origin, limity, pola, token, czas wypełnienia, pułapka, duplikaty, filtry treści i opcjonalnie ocena Jev. Dopiero potem zapis."],["Na koniec mail","Zgłoszenie i maile zapisują się w jednej transakcji. Gdy serwer pocztowy nie odpowiada, kolejka ponawia wysyłkę do 24 godzin."]]'>
-  <div class="clause">
-    <h2>Najpierw token</h2>
-    <p>Przy wejściu na stronę formd.js pobiera token podpisany HMAC. Jest jednorazowy, przypisany do formularza i ważny dwie godziny.</p>
-  </div>
-  <div class="frag">
-    <div class="stage-ui ui-card on" data-stage data-ui>
-      <h3>GET /f/kontakt/challenge</h3>
-<pre><code>{
-  "token": "djF8a29udGFrdHwxNzk3NDE…",
-  "bits": 16,
-  "min_seconds": 3
-}</code></pre>
+  <div class="demo-grid">
+
+    <!-- 1. the visitor's side -->
+    <div class="pane site">
+      <div class="pane-head"><span class="dot" aria-hidden="true"></span><span>twojastrona.pl/kontakt</span></div>
+      <form class="site-form" id="contact" novalidate autocomplete="off">
+        <label>Imię<input name="name" value="Anna" maxlength="60" required></label>
+        <label>E-mail<input name="email" type="email" value="anna@example.com" maxlength="80" required></label>
+        <label>Wiadomość<textarea name="message" rows="3" maxlength="400" required>Dzień dobry, proszę o wycenę strony.</textarea></label>
+        <div class="trap" data-trap hidden>
+          <label>Ukryte pole „website”<input name="website" tabindex="-1"></label>
+          <small>Ludzie go nie widzą. Boty wypełniają wszystko.</small>
+        </div>
+        <button class="btn" type="submit">Wyślij</button>
+        <p class="site-status" data-site-status role="status"></p>
+      </form>
+      <div class="bots">
+        <p>Albo wyślij jako bot:</p>
+        <div class="bot-btns">
+          <button type="button" data-bot="nojs">Bez JavaScriptu</button>
+          <button type="button" data-bot="fast">Wysyła po 0,4 s</button>
+          <button type="button" data-bot="trap">Wypełnia ukryte pole</button>
+          <button type="button" data-bot="dup">Powtarza treść</button>
+          <button type="button" data-bot="flood">10 zgłoszeń naraz</button>
+        </div>
+      </div>
     </div>
-    <div class="stage-ui ui-card" data-stage data-ui>
-      <h3>Przeglądarka szuka rozwiązania</h3>
-      <div class="big">Próba 51 514</div>
-<pre><code>sha256(token + ":51514")
-= 0000 7c1f 9a42 e1b0 …</code></pre>
-      <p class="ok" style="margin-top:12px">16 zerowych bitów, wysyłam</p>
+
+    <!-- 2. what formd checks -->
+    <div class="pane flow">
+      <div class="pane-head"><span class="dot dot-blue" aria-hidden="true"></span><span>formd na Twoim serwerze</span><span class="pane-meta" data-req></span></div>
+      <ol class="steps" aria-live="polite">
+        <li data-step="token"><b>Token</b><span>formd.js pobrał jednorazowy token przy otwarciu strony</span></li>
+        <li data-step="pow"><b>Praca przeglądarki</b><span>proof-of-work, 16 bitów</span></li>
+        <li data-step="origin"><b>Źródło</b><span>czy formularz przyszedł z Twojej strony</span></li>
+        <li data-step="rate"><b>Limit dla IP</b><span>najwyżej 5 zgłoszeń w 10 minut</span></li>
+        <li data-step="time"><b>Czas wypełnienia</b><span>człowiek potrzebuje co najmniej 3 sekund</span></li>
+        <li data-step="trap"><b>Pole-pułapka</b><span>ukryte pole musi zostać puste</span></li>
+        <li data-step="dup"><b>Duplikat</b><span>ta sama treść drugi raz nie przejdzie</span></li>
+        <li data-step="save"><b>Zapis i maile</b><span>zgłoszenie i maile w jednej transakcji SQLite</span></li>
+      </ol>
+      <p class="verdict" data-verdict></p>
     </div>
-    <div class="stage-ui ui-card" data-stage data-ui>
-      <h3>POST /f/kontakt</h3>
-      <ul class="checks">
-        <li>Origin https://example.com<span>dozwolony</span></li>
-        <li>Limit dla IP<span>2 z 5</span></li>
-        <li>Token HMAC<span>pierwsze użycie</span></li>
-        <li>Czas wypełnienia<span>4,2 s</span></li>
-        <li>Pola<span>3 z 3</span></li>
-        <li>Pole-pułapka<span>puste</span></li>
-        <li>Duplikat<span>nie</span></li>
-        <li>Ocena Jev<span>spam 4%</span></li>
+
+    <!-- 3. what you get -->
+    <div class="pane inbox">
+      <div class="pane-head"><span class="dot dot-green" aria-hidden="true"></span><span>Twoja skrzynka</span><span class="pane-meta"><span data-count>0</span> w panelu</span></div>
+      <ul class="mails" data-mails>
+        <li class="empty">Tu pojawią się maile, gdy zgłoszenie przejdzie.</li>
       </ul>
+      <p class="blocked" data-blocked hidden>Zatrzymane boty: <b data-blocked-n>0</b>. Żaden nie dotarł do skrzynki.</p>
+      <button class="reset" type="button" data-reset>Zacznij od nowa</button>
     </div>
-    <div class="stage-ui ui-card" data-stage data-ui>
-      <h3>Kolejka maili</h3>
-      <div class="mailrow"><b>biuro@example.com</b><span class="tagx green">wysłany</span><span>Nowa wiadomość od Anny</span></div>
-      <div class="mailrow"><b>anna.nowak@gmail.com</b><span class="tagx green">wysłany</span><span>Dziękujemy za wiadomość</span></div>
-      <div class="mailrow"><b>Ponowienia</b><span class="tagx">1 min → 24 h</span><span>gdy SMTP nie odpowiada</span></div>
-    </div>
-  </div>
-  <div class="flow-ctl">
-    <input type="range" min="0" max="3" step="1" value="0" aria-label="Etap obsługi formularza">
-    <ol><li>Token</li><li>Proof-of-work</li><li>Kontrola</li><li>Wysyłka</li></ol>
+
   </div>
 </section>
 
-<section class="tube" aria-labelledby="tube-h">
-  <figure class="map" data-rise style="margin:0">
-    <img src="assets/berliner-rohrpost-1945.jpg" alt="Mapa berlińskiej sieci poczty pneumatycznej z 8 maja 1945: stacje połączone liniami, część oznaczona jako zniszczona" width="1920" height="1380" loading="lazy">
-  </figure>
-  <div>
-    <h2 id="tube-h" data-rise>Poczta pneumatyczna</h2>
-    <p data-rise style="--i:1">Kapsuła z wiadomością jechała rurą prosto do adresata, bez sortowni i bez pośredników. formd robi to samo dla Twojej strony: formularz trafia z przeglądarki do Twojego serwera, a stamtąd do Twojej skrzynki. Nikt po drodze nie czyta ani nie przechowuje zgłoszeń.</p>
-    <div class="binder" data-rise style="--i:2"><img src="assets/pneumatic-tube-communication.jpg" alt="Segregator z dokumentacją instalacji poczty pneumatycznej na tle planów technicznych" width="1920" height="1440" loading="lazy"></div>
-    <small data-rise style="--i:3">Berlińska sieć poczty pneumatycznej, 8 maja 1945, i dokumentacja techniczna podobnej instalacji.</small>
+<section class="install" id="instalacja" aria-labelledby="inst-h">
+  <div class="inst-head">
+    <h2 id="inst-h">Postaw to u siebie</h2>
+    <p>Potrzebujesz serwera z Linuksem, domeny i nginx albo Caddy. Wpisz swoją domenę, a wszystkie polecenia poniżej się do niej dopasują.</p>
   </div>
-</section>
 
-<section id="ochrona" aria-labelledby="board-h">
-  <div class="board">
-    <div class="tile head" data-rise><h2 id="board-h">Ochrona w warstwach</h2></div>
-
-    <div class="tile t-a blue" data-rise style="--i:1">
-      <div class="zoom" data-ui><img src="assets/shot-held.webp" alt="Wstrzymane zgłoszenie z oceną Jev: spam 93%" width="1600" height="468" loading="lazy"></div>
-      <div class="cap"><b>Ocena treści przez Jev</b><span>Opcjonalnie. Podejrzane zgłoszenia czekają, aż je zatwierdzisz, a maile do nich nie wychodzą.</span></div>
-    </div>
-
-    <div class="tile t-b dark" data-rise style="--i:2">
-      <div class="zoom" data-ui><span class="sw"></span>Challenge</div>
-      <div class="cap"><b>Proof-of-work zamiast captchy</b><span>Bez zewnętrznych usług i bez klikania w obrazki. Token jest jednorazowy.</span></div>
-    </div>
-
-    <div class="tile t-c pale" data-rise style="--i:3">
-      <div class="zoom" data-ui>127.0.0.1</div>
-      <div class="cap"><b>Słucha tylko lokalnie</b><span>Na świat wystawia go Twój nginx lub Caddy.</span></div>
-    </div>
-
-    <div class="tile t-d" data-rise style="--i:4">
-      <div class="zoom" data-ui><span class="key">ssh</span><span class="key">-L</span></div>
-      <div class="cap"><b>Panel przez tunel</b><span>Osobny port, nigdy nie proxowany.</span></div>
-    </div>
-
-    <div class="tile t-e pale" data-rise style="--i:5">
-      <div class="zoom" data-ui><span class="tagx">5 na 10 min</span><span class="tagx">60 na godzinę</span><span class="tagx">2 potwierdzenia na adres</span></div>
-      <div class="cap"><b>Limity tempa</b><span>Per IP, per formularz i globalnie, także dla maili z potwierdzeniem.</span></div>
-    </div>
-
-    <div class="tile t-f" data-rise style="--i:6">
-      <div class="zoom" data-ui>0600</div>
-      <div class="cap"><b>Baza tylko dla formd</b><span>SQLite, uprawnienia ustawione przy tworzeniu.</span></div>
-    </div>
-
-    <div class="tile t-g pale" data-rise style="--i:7">
-      <div class="zoom" data-ui><span class="btn">Zatwierdź i wyślij</span></div>
-      <div class="cap"><b>Decyzja należy do Ciebie</b><span>Wstrzymaj, oznacz albo odrzuć.</span></div>
-    </div>
-
-    <div class="tile t-i dark" data-rise style="--i:8">
-      <div class="zoom" data-ui><span class="tagx">argon2id</span><span class="tagx">CSRF</span><span class="tagx">SameSite=Strict</span><span class="tagx">CSP</span><span class="tagx">Host allowlist</span></div>
-      <div class="cap"><b>Panel bez skrótów</b><span>Hasła w argon2id, sesje po stronie serwera, ochrona przed DNS rebinding, dziennik zdarzeń.</span></div>
-    </div>
-  </div>
-</section>
-
-<section class="lineup" aria-label="Co formd sprawdza">
-  <table>
-    <caption data-rise>Co formd sprawdza</caption>
-    <tbody>
-      <tr><th colspan="4">Zanim zgłoszenie dotrze do formularza</th></tr>
-      <tr><td>Połączenie spoza listy IP</td><td>allowlista</td><td>proxy · formd</td><td>403</td></tr>
-      <tr><td>Strona spoza listy originów</td><td>Origin, CORS</td><td>formd</td><td>403</td></tr>
-      <tr><td>Za dużo zgłoszeń z jednego IP</td><td>limit tempa</td><td>formd</td><td>429</td></tr>
-      <tr><td>Za duża treść</td><td>64 KB</td><td>proxy · formd</td><td>413</td></tr>
-    </tbody>
-    <tbody>
-      <tr><th colspan="4">W formd</th></tr>
-      <tr><td>Brak tokenu albo token użyty drugi raz</td><td>HMAC, jednorazowy</td><td>formd</td><td>400</td></tr>
-      <tr><td>Wysłane szybciej niż człowiek</td><td>minimalny czas</td><td>formd</td><td>400</td></tr>
-      <tr><td>Za mało pracy przeglądarki</td><td>proof-of-work</td><td>formd</td><td>400</td></tr>
-      <tr><td>Nieznane pole, znaki sterujące</td><td>walidacja</td><td>formd</td><td>400</td></tr>
-      <tr><td>Wypełnione pole-pułapka</td><td>honeypot</td><td>formd</td><td>udawany sukces</td></tr>
-      <tr><td>Ta sama treść drugi raz</td><td>duplikaty</td><td>formd</td><td>udawany sukces</td></tr>
-      <tr><td>Za dużo linków, zakazana fraza</td><td>filtr treści</td><td>formd</td><td>udawany sukces</td></tr>
-    </tbody>
-    <tbody>
-      <tr><th colspan="4">Opcjonalnie</th></tr>
-      <tr><td>Spam, oszustwo, treść obraźliwa</td><td>ocena Jev</td><td>OpenRouter</td><td>wstrzymane</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<section class="cta" id="start" aria-label="Instalacja">
-  <form id="generator" data-rise>
-    <label for="domain">Postaw formd na</label> <input id="domain" name="domain" placeholder="domena.pl" autocomplete="off" spellcheck="false" maxlength="253"> <button type="submit">dziś</button>
+  <form class="setup" id="setup" autocomplete="off" novalidate>
+    <label class="setup-domain">Domena strony
+      <input name="domain" placeholder="twojastrona.pl" maxlength="80" spellcheck="false" inputmode="url">
+    </label>
+    <fieldset class="setup-where">
+      <legend>Gdzie leży strona</legend>
+      <label><input type="radio" name="where" value="same" checked> Na tym samym serwerze</label>
+      <label><input type="radio" name="where" value="other"> Gdzie indziej (GitHub Pages, Netlify, S3)</label>
+    </fieldset>
+    <p class="setup-note" data-variant="same">formd będzie pod <code>https://<span data-d>twojastrona.pl</span>/f/</code>, obok strony.</p>
+    <p class="setup-note" data-variant="other" hidden>formd stanie na subdomenie <code>https://<span data-h>forms.twojastrona.pl</span>/f/</code>. Dodaj dla niej rekord DNS A wskazujący na ten serwer.</p>
   </form>
-  <p class="after" data-rise style="--i:1">Wpisz domenę strony, a niżej dostaniesz gotowe komendy, konfigurację nginx z HTTPS i kod formularza. Formularz musi trafiać na adres HTTPS, bo formd słucha tylko lokalnie.</p>
-  <div class="recipe" id="przepis">
-    <figure data-rise style="--i:2">
-      <figcaption><span class="mark"></span>Serwer</figcaption>
-<pre><code>go install github.com/dc9-dev/formd/cmd/formd@latest
-cp .env.example .env
-formd user add admin
-formd serve
 
-# certyfikat dla strony
-certbot --nginx -d <span class="hl" data-domain>example.com</span>
+  <ol class="guide">
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Pobierz formd</h3>
+        <p>Jedna statycznie linkowana binarka dla Linuksa x86-64 albo ARM64. Sprawdź sumę kontrolną przed instalacją.</p>
+        <p class="g-alt">Wolisz zbudować sam? Wystarczy Go 1.27.2 lub nowsze: <code>go build -o formd ./cmd/formd</code> w sklonowanym repozytorium.</p>
+      </div>
+      <div class="g-code" data-label="serwer"><pre><code>curl -LO https://github.com/dc9-dev/formd/releases/download/v0.1.0/formd-linux-amd64
+curl -LO https://github.com/dc9-dev/formd/releases/download/v0.1.0/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS</code></pre></div>
+    </li>
 
-# panel z Twojego komputera
-ssh -L 8026:127.0.0.1:8026 <span class="hl" data-domain>example.com</span></code></pre>
-    </figure>
-    <figure data-rise style="--i:3">
-      <figcaption><span class="mark"></span>nginx</figcaption>
-<pre><code>server {
-  listen 443 ssl;
-  server_name <span class="hl" data-domain>example.com</span>;
-  root /var/www/<span class="hl" data-domain>example.com</span>;
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Zainstaluj usługę</h3>
+        <p>Skrypt zakłada systemowego użytkownika <code>formd</code>, kopiuje binarkę do <code>/usr/local/bin</code>, tworzy <code>/etc/formd/formd.env</code> z uprawnieniami 0640 i instaluje utwardzoną jednostkę systemd.</p>
+      </div>
+      <div class="g-code" data-label="serwer"><pre><code>git clone --depth 1 --branch v0.1.0 https://github.com/dc9-dev/formd
+cd formd
+sudo sh deploy/install.sh ../formd-linux-amd64</code></pre></div>
+    </li>
 
-  location /f/ {
-    proxy_pass http://127.0.0.1:8025;
-    proxy_set_header X-Real-IP $remote_addr;
-    client_max_body_size 64k;
-  }
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Ustaw pocztę</h3>
+        <p>W <code>/etc/formd/formd.env</code> wybierz sposób wysyłki. Zacznij od <code>log</code>, jeśli chcesz najpierw sprawdzić formularz bez wysyłania maili.</p>
+        <div class="seg" role="tablist" aria-label="Sposób wysyłki">
+          <button type="button" role="tab" aria-selected="true" data-tab="mail" data-show="smtp">SMTP</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="mail" data-show="ses">Amazon SES</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="mail" data-show="log">Tylko logi</button>
+        </div>
+      </div>
+      <div class="g-code" data-label="/etc/formd/formd.env">
+        <pre data-pane="mail" data-name="smtp"><code>MAILER=smtp
+MAIL_FROM="Strona &lt;no-reply@<span data-d>twojastrona.pl</span>&gt;"
+SMTP_HOST=smtp.<span data-d>twojastrona.pl</span>
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_TLS=starttls</code></pre>
+        <pre data-pane="mail" data-name="ses" hidden><code>MAILER=ses
+MAIL_FROM="Strona &lt;no-reply@<span data-d>twojastrona.pl</span>&gt;"
+AWS_REGION=eu-central-1
+<span class="c"># poświadczenia: rola IAM instancji albo
+# AWS_ACCESS_KEY_ID i AWS_SECRET_ACCESS_KEY</span></code></pre>
+        <pre data-pane="mail" data-name="log" hidden><code>MAILER=log
+<span class="c"># maile trafiają tylko do dziennika:
+# journalctl -u formd -f</span></code></pre>
+      </div>
+    </li>
+
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Uruchom i załóż konto</h3>
+        <p>Konto do panelu wymaga hasła z co najmniej 12 znaków. Hasło jest zapisywane w argon2id.</p>
+      </div>
+      <div class="g-code" data-label="serwer"><pre><code>sudo systemctl enable --now formd
+sudo -u formd formd -env /etc/formd/formd.env user add admin
+
+<span class="c"># formd odpowiada tylko lokalnie</span>
+curl http://127.0.0.1:8025/healthz</code></pre></div>
+    </li>
+
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Wystaw /f/ przez HTTPS</h3>
+        <p>formd słucha tylko na 127.0.0.1, więc świat widzi go przez Twój serwer WWW. Przekazuj wyłącznie ścieżkę <code>/f/</code>, nigdy panelu.</p>
+        <div class="seg" role="tablist" aria-label="Serwer WWW">
+          <button type="button" role="tab" aria-selected="true" data-tab="proxy" data-show="nginx">nginx</button>
+          <button type="button" role="tab" aria-selected="false" data-tab="proxy" data-show="caddy">Caddy</button>
+        </div>
+        <p class="g-alt" data-pane="proxy" data-name="caddy" hidden>Caddy sam pobierze certyfikat przy pierwszym starcie.</p>
+      </div>
+      <div class="g-code" data-label="konfiguracja serwera WWW">
+        <pre data-pane="proxy" data-name="nginx"><code><span class="c"># sudo certbot --nginx -d <span data-h>twojastrona.pl</span></span>
+server {
+    listen 443 ssl;
+    server_name <span data-h>twojastrona.pl</span>;
+    ssl_certificate     /etc/letsencrypt/live/<span data-h>twojastrona.pl</span>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/<span data-h>twojastrona.pl</span>/privkey.pem;
+<span data-variant="same">    root /var/www/<span data-d>twojastrona.pl</span>;
+</span>
+    location /f/ {
+        client_max_body_size 64k;
+        proxy_pass http://127.0.0.1:8025;
+        proxy_set_header Host            $host;
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+<span data-variant="other" hidden>
+    location / { return 404; }
+</span>}</code></pre>
+        <pre data-pane="proxy" data-name="caddy" hidden><code><span data-h>twojastrona.pl</span> {
+<span data-variant="same">    root * /var/www/<span data-d>twojastrona.pl</span>
+</span>    handle /f/* {
+        request_body {
+            max_size 64KB
+        }
+        reverse_proxy 127.0.0.1:8025 {
+            header_up X-Real-IP {remote_host}
+        }
+    }
+    handle {
+<span data-variant="same">        file_server
+</span><span data-variant="other" hidden>        respond 404
+</span>    }
 }</code></pre>
-    </figure>
-    <figure data-rise style="--i:4">
-      <figcaption><span class="mark"></span>kontakt.html</figcaption>
-<pre><code>&lt;form action="/f/kontakt" method="post"
-      data-formd="ajax"&gt;
+      </div>
+    </li>
+
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Otwórz panel i dodaj formularz</h3>
+        <p>Panel działa na osobnym porcie i nie wychodzi do internetu. Otwierasz go tunelem SSH ze swojego komputera, potem wchodzisz na <code>http://localhost:8026</code>.</p>
+        <p>W panelu utwórz formularz <code>kontakt</code>, dodaj origin <code>https://<span data-d>twojastrona.pl</span></code>, ustaw pola i adres, na który mają przychodzić powiadomienia. Potem go włącz.</p>
+      </div>
+      <div class="g-code" data-label="Twój komputer"><pre><code>ssh -L 8026:127.0.0.1:8026 <span data-h>twojastrona.pl</span></code></pre></div>
+    </li>
+
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Wstaw formularz na stronę</h3>
+        <p>Zwykły HTML i jeden skrypt, który pobiera token i liczy proof-of-work. Gotowy kod dla każdego formularza jest też w panelu, w zakładce „Kod HTML”.</p>
+        <p class="g-alt" data-variant="other" hidden>Jeśli strona ma nagłówek CSP, dopisz <code><span data-h>forms.twojastrona.pl</span></code> do <code>script-src</code>, <code>connect-src</code> i <code>form-action</code>.</p>
+      </div>
+      <div class="g-code" data-label="kontakt.html"><pre><code>&lt;form action="<span data-base></span>/f/kontakt" method="post" data-formd="ajax"&gt;
   &lt;input name="name" required&gt;
   &lt;input type="email" name="email" required&gt;
   &lt;textarea name="message" required&gt;&lt;/textarea&gt;
+  &lt;div style="position:absolute;left:-10000px" aria-hidden="true"&gt;
+    &lt;input name="website" tabindex="-1" autocomplete="off"&gt;
+  &lt;/div&gt;
   &lt;button&gt;Wyślij&lt;/button&gt;
-  &lt;p data-formd-status&gt;&lt;/p&gt;
+  &lt;p data-formd-status role="status"&gt;&lt;/p&gt;
 &lt;/form&gt;
-&lt;script src="/f/formd.js" defer&gt;&lt;/script&gt;
+&lt;script src="<span data-base></span>/f/formd.js" defer&gt;&lt;/script&gt;</code></pre></div>
+    </li>
 
-&lt;!-- w panelu: origin https://<span class="hl" data-domain>example.com</span> --&gt;</code></pre>
-    </figure>
+    <li class="g-step">
+      <div class="g-text">
+        <h3>Sprawdź z zewnątrz</h3>
+        <p>Skrypt i token powinny odpowiadać przez HTTPS. Potem wyślij formularz ze strony i zobacz zgłoszenie w panelu.</p>
+      </div>
+      <div class="g-code" data-label="dowolny komputer"><pre><code>curl -I https://<span data-h>twojastrona.pl</span>/f/formd.js
+<span class="c"># HTTP/2 200</span>
+
+curl https://<span data-h>twojastrona.pl</span>/f/kontakt/challenge
+<span class="c"># {"bits":16,"min_seconds":3,"token":"…"}</span></code></pre></div>
+    </li>
+  </ol>
+
+  <p class="more">Kopie zapasowe, aktualizacje, fail2ban i ocena treści przez Jev: <a href="https://github.com/dc9-dev/formd#wdrożenie-na-serwerze">README na GitHubie</a>.</p>
+</section>
+
+<section class="panel card" id="panel" aria-labelledby="panel-h">
+  <div class="panel-head">
+    <h2 id="panel-h">Panel widzisz tylko&nbsp;Ty</h2>
+    <p>Otwierasz go tunelem SSH i nie wystawiasz do internetu. Dane zostają na Twoim serwerze, hasła są w argon2id, sesje po stronie serwera, z ochroną CSRF.</p>
+  </div>
+
+  <div class="shots">
+    <div class="shot-list" role="tablist" aria-label="Ekrany panelu" aria-orientation="vertical">
+      <button type="button" role="tab" id="st-0" aria-controls="sp-0" aria-selected="true">
+        <b>Formularze</b><span>Wszystkie formularze na jednym ekranie: ile zgłoszeń jest w bazie, ile czeka na zatwierdzenie i czy jakiś mail nie wyszedł.</span>
+      </button>
+      <button type="button" role="tab" id="st-1" aria-controls="sp-1" aria-selected="false" tabindex="-1">
+        <b>Zgłoszenia</b><span>Każde zapisane zgłoszenie z oceną Jev. Wstrzymane zatwierdzasz jednym kliknięciem, całość pobierasz jako CSV.</span>
+      </button>
+      <button type="button" role="tab" id="st-2" aria-controls="sp-2" aria-selected="false" tabindex="-1">
+        <b>Ustawienia formularza</b><span>Pola, dozwolone originy, limity, proof-of-work, adresy maili i ocena treści. Bez edycji plików na serwerze.</span>
+      </button>
+      <button type="button" role="tab" id="st-3" aria-controls="sp-3" aria-selected="false" tabindex="-1">
+        <b>Kolejka maili</b><span>Co wyszło, co czeka na ponowienie, a co wstrzymał Jev. Nieudane wysyłki ponawiasz ręcznie.</span>
+      </button>
+      <button type="button" role="tab" id="st-4" aria-controls="sp-4" aria-selected="false" tabindex="-1">
+        <b>Kod HTML</b><span>Gotowy kod dla każdego formularza, z polem-pułapką i skryptem. Wklejasz go na stronę.</span>
+      </button>
+    </div>
+    <div class="browser">
+      <div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span class="url" data-url>localhost:8026/</span></div>
+      <div class="shot-stage">
+        <div role="tabpanel" id="sp-0" aria-labelledby="st-0" data-url="localhost:8026/">
+          <img src="assets/panel-forms.webp" alt="Lista formularzy z licznikami: zgłoszenia w bazie, aktywne formularze, czekające na zatwierdzenie, nieudane maile i dzienny koszt Jev" width="1600" height="778" loading="lazy">
+        </div>
+        <div role="tabpanel" id="sp-1" aria-labelledby="st-1" data-url="localhost:8026/forms/kontakt/submissions" hidden>
+          <img src="assets/panel-submissions.webp" alt="Zgłoszenia formularza Kontakt: wstrzymane zgłoszenie z oceną Jev spam 93% i przyciskiem Zatwierdź i wyślij oraz zwykłe zgłoszenie od Anny" width="1600" height="778" loading="lazy">
+        </div>
+        <div role="tabpanel" id="sp-2" aria-labelledby="st-2" data-url="localhost:8026/forms/kontakt" hidden>
+          <img src="assets/panel-settings.webp" alt="Ustawienia formularza Kontakt: nazwa, dozwolone originy, przekierowania i lista pól z typem, wymaganiem i limitem znaków" width="1600" height="778" loading="lazy">
+        </div>
+        <div role="tabpanel" id="sp-3" aria-labelledby="st-3" data-url="localhost:8026/outbox" hidden>
+          <img src="assets/panel-outbox.webp" alt="Kolejka maili z filtrami Oczekujące, Wysłane, Nieudane, Wstrzymane i dwoma mailami: jednym wstrzymanym, jednym wysłanym" width="1600" height="778" loading="lazy">
+        </div>
+        <div role="tabpanel" id="sp-4" aria-labelledby="st-4" data-url="localhost:8026/forms/kontakt/snippet" hidden>
+          <img src="assets/panel-snippet.webp" alt="Gotowy kod HTML formularza Kontakt z polem-pułapką i skryptem formd.js" width="1600" height="778" loading="lazy">
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
+
 </main>
 
-<footer>
-  <div class="bigmark" aria-hidden="true">
-    <div class="m-sq"><span><i></i><i></i><i></i></span></div>
-    <div class="m-word"><img src="assets/formd-logo.png" alt="" width="600" height="150" loading="lazy"></div>
-  </div>
-  <div class="f-links">
-    <div>
-      <h3>Projekt</h3>
-      <ul><li><a href="https://github.com/dc9-dev/formd">Kod źródłowy</a></li><li><a href="https://github.com/dc9-dev/formd/releases">Wydania</a></li><li><a href="https://github.com/dc9-dev/formd/issues">Zgłoś problem</a></li></ul>
-    </div>
-    <div>
-      <h3>Dokumentacja</h3>
-      <ul><li><a href="https://github.com/dc9-dev/formd#szybki-start">Szybki start</a></li><li><a href="https://github.com/dc9-dev/formd#https-i-reverse-proxy">HTTPS i proxy</a></li><li><a href="https://github.com/dc9-dev/formd#ocena-treści-jev">Ocena treści (Jev)</a></li></ul>
-    </div>
-    <div>
-      <h3>Wdrożenie</h3>
-      <ul><li><a href="https://github.com/dc9-dev/formd/tree/main/deploy">systemd, nginx, Caddy</a></li><li><a href="https://github.com/dc9-dev/formd/blob/main/.env.example">Przykładowy .env</a></li><li><a href="https://github.com/dc9-dev/formd/tree/main/examples">Przykładowy formularz</a></li></ul>
-    </div>
-    <p>formd działa na Twoim serwerze. Dane z formularzy nie trafiają do żadnej zewnętrznej usługi, chyba że włączysz ocenę treści przez Jev.</p>
-  </div>
-  <p class="credits">Zdjęcia archiwalne: <a href="https://commons.wikimedia.org/wiki/File:Berliner_Rohrpost_1945.jpg">„Berliner Rohrpost 1945”</a>, Prof. Dr. Nemo Klein, CC BY-SA 3.0; <a href="https://commons.wikimedia.org/wiki/File:Pneumatic_Tube_Communication.jpg">„Pneumatic Tube Communication”</a>, Medea7, CC BY 4.0; oba przez Wikimedia Commons. Pozostałe obrazy to zrzuty panelu formd.</p>
-  <div class="f-last"><span>© 2026 formd</span><a class="btn small on-blue" href="https://github.com/dc9-dev/formd">GitHub</a></div>
+<footer class="foot">
+  <img src="assets/formd-logo-2x.png" alt="formd" width="108" height="24" loading="lazy">
+  <nav aria-label="Linki">
+    <a href="https://github.com/dc9-dev/formd">Kod źródłowy</a>
+    <a href="https://github.com/dc9-dev/formd/releases">Wydania</a>
+    <a href="https://github.com/dc9-dev/formd/issues">Zgłoś problem</a>
+    <a href="https://github.com/dc9-dev/formd/blob/main/LICENSE">Licencja AGPL-3.0</a>
+  </nav>
+  <p class="foot-copy">© 2026 Łukasz Sobiecki</p>
 </footer>
 
 </body>

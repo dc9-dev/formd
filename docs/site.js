@@ -1,8 +1,10 @@
-/* formd.top — the live proof-of-work demo, the stage slider, the config
-   generator and section entrances. Everything degrades to readable HTML. */
+/* formd.top — a live walk-through of one submission. The proof-of-work is
+   real (same SHA-256 search as formd.js); the server checks are simulated
+   with formd's own rules: 5 submissions per IP in 10 minutes, at least
+   3 seconds after the token, empty honeypot, no duplicate content.
+   Everything is written with textContent and stays in the browser. */
 (function () {
   'use strict';
-  document.documentElement.classList.add('js');
 
   // ---- SHA-256 (first word only), same algorithm as formd.js ----
   var K = new Uint32Array([
@@ -41,109 +43,432 @@
     }
     return h0 >>> 0;
   }
-
-  var fmt = new Intl.NumberFormat('pl-PL');
-  function secs(ms) { return ms < 1000 ? Math.max(1, Math.round(ms)) + ' ms' : (ms / 1000).toFixed(1).replace('.', ',') + ' s'; }
-  function human(ms) {
-    if (ms < 60000) return secs(ms);
-    if (ms < 3600000) return Math.round(ms / 60000) + ' min';
-    return (ms / 3600000).toFixed(1).replace('.', ',') + ' h';
+  async function solve(n) {
+    var limit = 0xffffffff >>> n;
+    var prefix = new TextEncoder().encode('demo.' + Math.random().toString(36).slice(2) + ':');
+    var bytes = new Uint8Array(prefix.length + 20); bytes.set(prefix);
+    var t0 = performance.now();
+    for (var k = 0; ; k++) {
+      var s = String(k), len = prefix.length;
+      for (var i = 0; i < s.length; i++) bytes[len++] = s.charCodeAt(i);
+      if (sha256First(bytes, len) <= limit) return { tries: k + 1, ms: performance.now() - t0 };
+      if ((k & 0x3fff) === 0) await new Promise(function (r) { setTimeout(r, 0); });
+    }
   }
 
-  // ---- proof-of-work demo ----
-  var pow = document.getElementById('pow');
-  if (pow) {
-    var range = pow.querySelector('input[type=range]');
-    var value = pow.querySelector('[data-bits]');
-    var word = pow.querySelector('[data-word]');
-    var go = pow.querySelector('.go');
-    var out = { tries: pow.querySelector('[data-tries]'), time: pow.querySelector('[data-time]'), bot: pow.querySelector('[data-bot]') };
-    var note = pow.querySelector('.note');
-    var running = false;
-    function plural(n) { return n === 1 ? 'bit' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'bity' : 'bitów'; }
-    function show() {
-      var n = +range.value;
-      value.firstChild.nodeValue = n + ' ';
-      value.querySelector('small').textContent = plural(n);
-      word.textContent = n + ' ' + plural(n);
-      out.tries.textContent = fmt.format(Math.pow(2, n));
-      out.time.textContent = '—';
-      out.bot.textContent = '—';
-      pow.classList.toggle('hard', n >= 20);
-      note.textContent = n >= 20 ? 'Na słabszym telefonie to już kilka sekund. Rozsądny zakres to 14–18 bitów.' : 'Średnia liczba prób rośnie dwukrotnie z każdym bitem.';
+  // ---- hero diagram: an endless stream of people and bots ----
+  (function () {
+    var stage = document.querySelector('.viz-stage');
+    if (!stage) return;
+    var site = stage.querySelector('.n-site'), fd = stage.querySelector('.n-formd'), inbox = stage.querySelector('.n-inbox');
+    var ticks = Array.prototype.slice.call(fd.querySelectorAll('[data-c]'));
+    var why = fd.querySelector('.why'), rows = inbox.querySelector('.rows');
+    var typed = site.querySelector('[data-type]'), send = site.querySelector('[data-send]');
+    var nPass = document.querySelector('[data-pass]'), nStop = document.querySelector('[data-stop]');
+    var pass = 0, stop = 0, i = 0, visible = true;
+    var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var people = ['Anna', 'Piotr', 'Kasia', 'Marek', 'Ola', 'Tomek'];
+    var bots = [
+      { at: 'pulapka', why: 'pole-pułapka wypełnione: udawany sukces' },
+      { at: 'czas', why: 'wysłane po 0,3 s: 400' },
+      { at: 'token', why: 'brak tokenu, bot bez JS: 400' },
+      { at: 'limit', why: '6. zgłoszenie w 10 min: 429' },
+      { at: 'duplikat', why: 'ta sama treść drugi raz: udawany sukces' }
+    ];
+    var plan = ['p', 'b', 'b', 'p', 'b', 'b', 'b', 'p', 'b', 'b'];
+    var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    function at(node, side) {
+      var s = stage.getBoundingClientRect(), n = node.getBoundingClientRect();
+      return { x: (side === 'in' ? n.left : n.right) - s.left, y: n.top - s.top + n.height / 2 };
     }
-    range.addEventListener('input', show);
-    go.addEventListener('click', async function () {
-      if (running) return;
-      running = true; go.disabled = true; go.textContent = 'Liczę…';
-      var n = +range.value, limit = n >= 32 ? 0 : (0xffffffff >>> n);
-      var prefix = new TextEncoder().encode('demo.' + Math.random().toString(36).slice(2) + ':');
-      var bytes = new Uint8Array(prefix.length + 20); bytes.set(prefix);
-      var t0 = performance.now(), tries = 0;
-      for (var k = 0; ; k++) {
-        var s = String(k), len = prefix.length;
-        for (var i = 0; i < s.length; i++) bytes[len++] = s.charCodeAt(i);
-        tries++;
-        if (sha256First(bytes, len) <= limit) break;
-        if ((k & 0x3fff) === 0) await new Promise(function (r) { setTimeout(r, 0); });
+    function move(el, from, to, ms) {
+      return el.animate([{ transform: 'translate(' + from.x + 'px,' + from.y + 'px) translate(-50%,-50%)' },
+                         { transform: 'translate(' + to.x + 'px,' + to.y + 'px) translate(-50%,-50%)' }],
+                        { duration: ms, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }).finished;
+    }
+    function addRow(name) {
+      var li = document.createElement('li'), b = document.createElement('b'), sp = document.createElement('span');
+      b.textContent = name; sp.textContent = 'nowa wiadomość';
+      li.append(b, sp); rows.prepend(li);
+      while (rows.children.length > 4) rows.lastChild.remove();
+    }
+    async function one() {
+      var human = plan[i % plan.length] === 'p';
+      var bot = bots[i % bots.length], name = people[i % people.length];
+      i++;
+      // the visitor (or bot) types a name and presses Wyślij
+      typed.textContent = '';
+      var label = human ? name : 'SEO PROMO!!!';
+      for (var j = 1; j <= label.length; j++) { typed.textContent = label.slice(0, j); await sleep(human ? 55 : 12); }
+      send.classList.add('press'); await sleep(140); send.classList.remove('press');
+      var el = document.createElement('span');
+      el.className = 'pkt' + (human ? '' : ' bot');
+      el.textContent = human ? name : 'bot';
+      stage.appendChild(el);
+      var a = at(send, 'out'), c = at(fd, 'in');
+      a.x -= 10; c.x += 18;
+      await move(el, a, c, 650);
+      el.style.opacity = '0';
+      ticks.forEach(function (t) { t.className = ''; }); why.textContent = '';
+      for (var k = 0; k < ticks.length; k++) {
+        var t = ticks[k];
+        if (!human && t.getAttribute('data-c') === bot.at) { t.className = 'bad'; why.textContent = bot.why; break; }
+        t.className = 'ok'; await sleep(70);
       }
-      var ms = performance.now() - t0;
-      out.tries.textContent = fmt.format(tries);
-      out.time.textContent = secs(ms);
-      out.bot.textContent = human(ms * 1000);
-      note.textContent = 'Twoja przeglądarka znalazła rozwiązanie po ' + fmt.format(tries) + ' próbach. Bot wysyłający tysiąc zgłoszeń musiałby to powtórzyć tysiąc razy.';
-      go.disabled = false; go.textContent = 'Policz jeszcze raz'; running = false;
-    });
-    show();
-  }
-
-  // ---- stage slider ----
-  var flow = document.getElementById('jak');
-  if (flow) {
-    var slider = flow.querySelector('.flow-ctl input');
-    var stages = flow.querySelectorAll('[data-stage]');
-    var names = flow.querySelectorAll('.flow-ctl li');
-    var clauses = JSON.parse(flow.getAttribute('data-clauses'));
-    var h2 = flow.querySelector('.clause h2'), p = flow.querySelector('.clause p');
-    function stage() {
-      var i = +slider.value;
-      stages.forEach(function (el, k) { el.classList.toggle('on', k === i); });
-      names.forEach(function (el, k) { el.classList.toggle('on', k === i); });
-      h2.textContent = clauses[i][0]; p.textContent = clauses[i][1];
-      slider.setAttribute('aria-valuetext', names[i].textContent);
+      if (!human) {
+        stop++; nStop.textContent = stop;
+        el.remove(); await sleep(900); return;
+      }
+      el.style.opacity = '';
+      var d = at(fd, 'out'), e = at(inbox, 'in');
+      d.x -= 18; e.x += 24;
+      await move(el, d, e, 650);
+      el.remove();
+      pass++; nPass.textContent = pass; addRow(name);
+      await sleep(500);
     }
-    slider.addEventListener('input', stage);
-    stage();
-  }
+    async function loop() {
+      for (;;) {
+        if (!visible || document.hidden) { await sleep(400); continue; }
+        try { await one(); } catch (e) { await sleep(400); }
+      }
+    }
+    if (calm) {
+      addRow('Kasia'); addRow('Piotr'); addRow('Anna');
+      ticks.forEach(function (t) { t.className = t.getAttribute('data-c') === 'pulapka' ? 'bad' : (t.getAttribute('data-c') === 'duplikat' ? '' : 'ok'); });
+      why.textContent = bots[0].why; nPass.textContent = '3'; nStop.textContent = '7';
+      return;
+    }
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { visible = es[0].isIntersecting; }).observe(stage);
+    loop();
+  })();
 
-  // ---- config generator ----
-  var form = document.getElementById('generator');
-  if (form) {
-    var input = form.querySelector('input');
-    var slots = document.querySelectorAll('[data-domain]');
+  // ---- background: contour lines of fractal noise, drawn once per size ----
+  (function () {
+    var cv = document.querySelector('canvas.bg');
+    if (!cv || !cv.getContext) return;
+    // value noise with a fixed seed, summed over octaves (fBm)
+    var P = new Uint8Array(512), seed = 7;
+    for (var i = 0; i < 256; i++) P[i] = i;
+    for (i = 255; i > 0; i--) { seed = (seed * 16807) % 2147483647; var j = seed % (i + 1), t = P[i]; P[i] = P[j]; P[j] = t; }
+    for (i = 0; i < 256; i++) P[i + 256] = P[i];
+    function hash(x, y) { return P[P[x & 255] + (y & 255)] / 255; }
+    function sm(t) { return t * t * (3 - 2 * t); }
+    function vnoise(x, y) {
+      var xi = Math.floor(x), yi = Math.floor(y), xf = sm(x - xi), yf = sm(y - yi);
+      var a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+      return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+    }
+    function fbm(x, y) { var v = 0, amp = 0.5, f = 1; for (var o = 0; o < 4; o++) { v += amp * vnoise(x * f, y * f); f *= 2.03; amp *= 0.5; } return v; }
+
+    function draw() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 2), w = window.innerWidth, h = window.innerHeight;
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+      var step = 10, cols = Math.ceil(w / step) + 1, rows = Math.ceil(h / step) + 1, sc = 1 / 260;
+      var f = new Float32Array(cols * rows);
+      for (var y = 0; y < rows; y++) for (var x = 0; x < cols; x++) f[y * cols + x] = fbm(x * step * sc + 3.1, y * step * sc + 1.7);
+      var levels = 18;
+      for (var L = 1; L < levels; L++) {
+        var iso = 0.18 + L * (0.64 / levels);
+        g.beginPath();
+        for (y = 0; y < rows - 1; y++) for (x = 0; x < cols - 1; x++) {
+          var a = f[y * cols + x], b = f[y * cols + x + 1], c = f[(y + 1) * cols + x + 1], d = f[(y + 1) * cols + x];
+          var k = (a > iso ? 8 : 0) | (b > iso ? 4 : 0) | (c > iso ? 2 : 0) | (d > iso ? 1 : 0);
+          if (k === 0 || k === 15) continue;
+          var X = x * step, Y = y * step;
+          var top = [X + step * (iso - a) / (b - a), Y], right = [X + step, Y + step * (iso - b) / (c - b)];
+          var bot = [X + step * (iso - d) / (c - d), Y + step], left = [X, Y + step * (iso - a) / (d - a)];
+          var segs = {1: [[left, bot]], 2: [[bot, right]], 3: [[left, right]], 4: [[top, right]], 5: [[left, top], [bot, right]], 6: [[top, bot]], 7: [[left, top]],
+                      8: [[left, top]], 9: [[top, bot]], 10: [[top, right], [left, bot]], 11: [[top, right]], 12: [[left, right]], 13: [[bot, right]], 14: [[left, bot]]}[k];
+          for (var sgi = 0; sgi < segs.length; sgi++) { g.moveTo(segs[sgi][0][0], segs[sgi][0][1]); g.lineTo(segs[sgi][1][0], segs[sgi][1][1]); }
+        }
+        g.strokeStyle = L % 4 === 0 ? 'rgba(11, 85, 246, 0.13)' : 'rgba(11, 85, 246, 0.065)';
+        g.lineWidth = L % 4 === 0 ? 1.2 : 0.8;
+        g.stroke();
+      }
+    }
+    var timer = 0, lastW = 0;
+    function redraw() { if (Math.abs(window.innerWidth - lastW) < 2 && cv.width) return; lastW = window.innerWidth; draw(); }
+    window.addEventListener('resize', function () { clearTimeout(timer); timer = setTimeout(redraw, 200); });
+    redraw();
+  })();
+
+  // ---- install guide: domain, variant, tabs, copy ----
+  (function () {
+    var setup = document.getElementById('setup');
+    if (!setup) return;
+    var input = setup.elements.domain, DEF = 'twojastrona.pl';
     var clean = function (v) {
-      v = v.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-      return /^[a-z0-9.-]{1,253}\.[a-z]{2,}$/.test(v) ? v : '';
+      v = v.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+      return /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(v) ? v : '';
     };
     function apply() {
-      var d = clean(input.value) || 'example.com';
-      slots.forEach(function (el) { el.textContent = d; });
+      var d = clean(input.value) || DEF;
+      var other = setup.querySelector('input[name=where]:checked').value === 'other';
+      var host = other ? 'forms.' + d : d;
+      document.querySelectorAll('[data-d]').forEach(function (n) { n.textContent = d; });
+      document.querySelectorAll('[data-h]').forEach(function (n) { n.textContent = host; });
+      document.querySelectorAll('[data-base]').forEach(function (n) { n.textContent = other ? 'https://' + host : ''; });
+      document.querySelectorAll('.install [data-variant]').forEach(function (n) { n.hidden = n.getAttribute('data-variant') !== (other ? 'other' : 'same'); });
     }
-    input.addEventListener('input', apply);
-    form.addEventListener('submit', function (e) {
-      e.preventDefault(); apply();
-      document.getElementById('przepis').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setup.addEventListener('input', apply);
+    setup.addEventListener('change', apply);
+    setup.addEventListener('submit', function (e) { e.preventDefault(); });
+    apply();
+
+    document.querySelectorAll('.install [data-tab]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var group = btn.getAttribute('data-tab'), name = btn.getAttribute('data-show');
+        document.querySelectorAll('.install [data-tab="' + group + '"]').forEach(function (b) { b.setAttribute('aria-selected', b === btn); });
+        document.querySelectorAll('.install [data-pane="' + group + '"]').forEach(function (p) { p.hidden = p.getAttribute('data-name') !== name; });
+      });
     });
+
+    document.querySelectorAll('.g-code').forEach(function (box) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'copy'; b.textContent = 'Kopiuj';
+      b.addEventListener('click', function () {
+        var pre = Array.prototype.filter.call(box.querySelectorAll('pre'), function (p) { return !p.hidden; })[0];
+        var clone = pre.cloneNode(true);
+        clone.querySelectorAll('[hidden]').forEach(function (h) { h.remove(); });
+        var done = function (ok) { b.textContent = ok ? 'Skopiowano' : 'Zaznacz ręcznie'; setTimeout(function () { b.textContent = 'Kopiuj'; }, 1600); };
+        if (navigator.clipboard) navigator.clipboard.writeText(clone.textContent).then(function () { done(true); }, function () { done(false); });
+        else done(false);
+      });
+      var bar = document.createElement('div'), lab = document.createElement('span');
+      bar.className = 'g-bar'; lab.textContent = box.getAttribute('data-label') || '';
+      bar.append(lab, b);
+      box.prepend(bar);
+    });
+  })();
+
+  // ---- panel screenshots: tabs, arrow keys, address bar follows ----
+  (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.shot-list [role=tab]'));
+    if (!tabs.length) return;
+    var url = document.querySelector('[data-url].url');
+    function pick(tab, focus) {
+      tabs.forEach(function (t) {
+        var on = t === tab, panel = document.getElementById(t.getAttribute('aria-controls'));
+        t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1; panel.hidden = !on;
+        if (on) url.textContent = panel.getAttribute('data-url');
+      });
+      if (focus) tab.focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { pick(t); });
+      t.addEventListener('keydown', function (e) {
+        var j = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? i + 1 : (e.key === 'ArrowUp' || e.key === 'ArrowLeft') ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null;
+        if (j === null) return;
+        e.preventDefault(); pick(tabs[(j + tabs.length) % tabs.length], true);
+      });
+    });
+  })();
+
+  var demo = document.getElementById('demo');
+  if (!demo) return;
+
+  var fmt = new Intl.NumberFormat('pl-PL', { useGrouping: 'always' });
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, still ? 0 : ms); }); }
+  function q(sel) { return demo.querySelector(sel); }
+  function secs(ms) { return (ms / 1000).toFixed(1).replace('.', ',') + ' s'; }
+
+  var form = q('#contact');
+  var siteStatus = q('[data-site-status]');
+  var trap = q('[data-trap]');
+  var steps = {};
+  demo.querySelectorAll('[data-step]').forEach(function (li) {
+    steps[li.getAttribute('data-step')] = { li: li, span: li.querySelector('span'), idle: li.querySelector('span').textContent };
+  });
+  var order = ['token', 'pow', 'origin', 'rate', 'time', 'trap', 'dup', 'save'];
+  var verdict = q('[data-verdict]'), req = q('[data-req]');
+  var mails = q('[data-mails]'), count = q('[data-count]');
+  var blockedBox = q('[data-blocked]'), blockedN = q('[data-blocked-n]');
+  var buttons = demo.querySelectorAll('button[type=submit], [data-bot]');
+
+  var HUMAN_IP = '203.0.113.7', BOT_IP = '198.51.100.23';
+  var tokenAt = performance.now();
+  var hits = {}, seen = {}, saved = 0, blocked = 0, last = null, busy = false;
+
+  function setStep(name, cls, text) {
+    var s = steps[name];
+    s.li.className = cls || '';
+    s.span.textContent = text || s.idle;
+  }
+  function resetSteps() { order.forEach(function (n) { setStep(n); }); verdict.className = 'verdict'; verdict.textContent = ''; }
+  function skipFrom(name) { order.slice(order.indexOf(name) + 1).forEach(function (n) { setStep(n, 'skipped'); }); }
+  function say(cls, strong, rest) {
+    verdict.className = 'verdict ' + cls;
+    verdict.textContent = '';
+    var b = document.createElement('b'); b.textContent = strong;
+    verdict.append(b, ' ' + rest);
+  }
+  function site(cls, text) { siteStatus.className = 'site-status ' + cls; siteStatus.textContent = text; }
+  function lock(on) { busy = on; buttons.forEach(function (b) { b.disabled = on; }); }
+
+  function addMail(to, subj, body) {
+    var empty = mails.querySelector('.empty'); if (empty) empty.remove();
+    var li = document.createElement('li'); li.className = 'mail';
+    var a = document.createElement('div'); a.className = 'to'; a.textContent = 'Do: ' + to;
+    var b = document.createElement('div'); b.className = 'subj'; b.textContent = subj;
+    var c = document.createElement('div'); c.className = 'body'; c.textContent = body;
+    li.append(a, b, c);
+    mails.prepend(li);
+    while (mails.children.length > 6) mails.lastChild.remove();
+  }
+  function bump() { blocked++; blockedN.textContent = blocked; blockedBox.hidden = false; }
+
+  // check runs one submission through formd's checks and returns the outcome:
+  // 'ok', 'fake' (bot told it succeeded, nothing stored) or an HTTP status.
+  async function check(sub, pace) {
+    resetSteps();
+    req.textContent = sub.who + ', ' + sub.ip;
+    var p = pace;
+
+    setStep('token', 'run'); await wait(p);
+    if (!sub.js) {
+      setStep('token', 'bad', 'brak tokenu: bez JavaScriptu nie było czego podpisać');
+      skipFrom('token'); return 400;
+    }
+    setStep('token', 'ok', 'jednorazowy, podpisany HMAC, ważny 2 godziny');
+
+    setStep('pow', 'run');
+    var r = await solve(16); await wait(p);
+    setStep('pow', 'ok', fmt.format(r.tries) + ' prób SHA-256 w ' + Math.max(1, Math.round(r.ms)) + ' ms');
+
+    setStep('origin', 'run'); await wait(p);
+    setStep('origin', 'ok', 'https://twojastrona.pl jest na liście');
+
+    setStep('rate', 'run'); await wait(p);
+    var now = Date.now(), list = (hits[sub.ip] || []).filter(function (t) { return now - t < 600000; });
+    list.push(now); hits[sub.ip] = list;
+    if (list.length > 5) {
+      setStep('rate', 'bad', list.length + '. zgłoszenie z ' + sub.ip + ' w 10 minut');
+      skipFrom('rate'); return 429;
+    }
+    setStep('rate', 'ok', list.length + ' z 5 w ciągu 10 minut');
+
+    setStep('time', 'run'); await wait(p);
+    if (sub.elapsed < 3000) {
+      setStep('time', 'bad', 'wysłane ' + secs(sub.elapsed) + ' po pobraniu tokenu');
+      skipFrom('time'); return 400;
+    }
+    setStep('time', 'ok', secs(sub.elapsed) + ' od otwarcia formularza');
+
+    setStep('trap', 'run'); await wait(p);
+    if (sub.website) {
+      setStep('trap', 'fake', 'wypełnione: „' + sub.website.slice(0, 40) + '”');
+      skipFrom('trap'); return 'fake';
+    }
+    setStep('trap', 'ok', 'puste');
+
+    setStep('dup', 'run'); await wait(p);
+    var key = [sub.name, sub.email, sub.message].join('\u0000');
+    if (seen[key]) {
+      setStep('dup', 'fake', 'ta sama treść już jest w bazie');
+      skipFrom('dup'); return 'fake';
+    }
+    setStep('dup', 'ok', 'nowa treść');
+
+    setStep('save', 'run'); await wait(p);
+    seen[key] = true;
+    setStep('save', 'ok', 'zapisano, 2 maile w kolejce');
+    return 'ok';
   }
 
-  // ---- entrances ----
-  var items = document.querySelectorAll('[data-rise]');
-  if ('IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
-    }, { rootMargin: '0px 0px -8% 0px' });
-    items.forEach(function (el) { io.observe(el); });
-  } else {
-    items.forEach(function (el) { el.classList.add('in'); });
+  function deliver(sub) {
+    saved++; count.textContent = saved;
+    last = { name: sub.name, email: sub.email, message: sub.message };
+    addMail('biuro@twojastrona.pl', 'Nowa wiadomość od ' + sub.name, sub.message);
+    addMail(sub.email, 'Dziękujemy za wiadomość', 'Odpowiemy najszybciej, jak się da.');
   }
+
+  function explain(res, bot) {
+    if (res === 'ok') {
+      say('ok', 'Przeszło.', bot ? 'Ten bot zachowywał się jak człowiek. Na takie przypadki jest opcjonalna ocena treści przez Jev.' : 'Zgłoszenie jest w bazie, a maile w kolejce. Gdy serwer poczty nie odpowiada, formd ponawia wysyłkę do 24 godzin.');
+      site('ok', 'Dziękujemy! Wiadomość została wysłana.');
+    } else if (res === 'fake') {
+      say('fake', 'Udawany sukces.', 'Bot dostaje „Dziękujemy”, ale nic nie zapisano i żaden mail nie wyszedł. Prawdziwy błąd podpowiedziałby mu, jak obejść filtr.');
+      site('ok', 'Dziękujemy! Wiadomość została wysłana.');
+    } else if (res === 429) {
+      say('bad', 'HTTP 429.', 'Za dużo zgłoszeń z jednego adresu. Nic nie zapisano.');
+      site('bad', 'zbyt wiele zgłoszeń, spróbuj później');
+    } else {
+      say('bad', 'HTTP 400.', 'Zgłoszenie odrzucone, nic nie zapisano.');
+      site('bad', steps.time.li.className === 'bad' ? 'formularz wysłano zbyt szybko, spróbuj ponownie za chwilę' : 'weryfikacja nie powiodła się, odśwież stronę i spróbuj ponownie');
+    }
+  }
+
+  // ---- you ----
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (busy) return;
+    var f = form.elements;
+    var sub = { who: 'Ty', ip: HUMAN_IP, js: true, name: f.name.value.trim(), email: f.email.value.trim(), message: f.message.value.trim(), website: '', elapsed: performance.now() - tokenAt };
+    if (!sub.name || !sub.message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sub.email)) { site('bad', 'Uzupełnij imię, poprawny e-mail i wiadomość.'); return; }
+    lock(true); site('', 'Wysyłanie…');
+    var res = await check(sub, 260);
+    if (res === 'ok') deliver(sub);
+    explain(res, false);
+    tokenAt = performance.now(); // formd.js fetches a fresh token after each attempt
+    lock(false);
+  });
+
+  // ---- bots ----
+  var spam = { name: 'SEO Expert', email: 'seo@spam.example', message: 'Najtańsze linki SEO, kup teraz! http://spam.example' };
+  function bot(extra) {
+    var s = { who: 'bot', ip: BOT_IP, js: true, website: '', elapsed: 5200 };
+    Object.keys(spam).forEach(function (k) { s[k] = spam[k]; });
+    Object.keys(extra || {}).forEach(function (k) { s[k] = extra[k]; });
+    return s;
+  }
+  var scenarios = {
+    nojs: async function () { return [await check(bot({ ip: '198.51.100.11', js: false }), 260)]; },
+    fast: async function () { return [await check(bot({ ip: '198.51.100.12', elapsed: 400 }), 260)]; },
+    trap: async function () {
+      trap.hidden = false; trap.querySelector('input').value = 'http://spam.example';
+      var r = await check(bot({ ip: '198.51.100.13', website: 'http://spam.example' }), 260);
+      setTimeout(function () { trap.hidden = true; trap.querySelector('input').value = ''; }, still ? 0 : 2500);
+      return [r];
+    },
+    dup: async function () {
+      if (!last) { resetSteps(); say('fake', 'Najpierw wyślij formularz sam.', 'Ten bot powtarza ostatnie zgłoszenie, które przeszło.'); return []; }
+      return [await check(bot({ ip: '198.51.100.14', name: last.name, email: last.email, message: last.message }), 260)];
+    },
+    flood: async function () {
+      var out = [];
+      for (var i = 1; i <= 10; i++) out.push(await check(bot({ elapsed: 300 + i * 40, message: spam.message + ' #' + i }), 40));
+      return out;
+    }
+  };
+  demo.querySelectorAll('[data-bot]').forEach(function (b) {
+    b.addEventListener('click', async function () {
+      if (busy) return;
+      lock(true); site('', '');
+      var name = b.getAttribute('data-bot');
+      var res = await scenarios[name]();
+      res.forEach(function (r) { if (r === 'ok') deliver(bot()); else bump(); });
+      if (name === 'flood') {
+        var n400 = res.filter(function (r) { return r === 400; }).length, n429 = res.filter(function (r) { return r === 429; }).length;
+        var parts = [];
+        if (n400) parts.push('za szybko (400): ' + n400);
+        if (n429) parts.push('limit dla IP (429): ' + n429);
+        say('bad', '10 zgłoszeń z jednego IP.', 'Odrzucone: ' + parts.join(', ') + '. Nic nie zapisano.');
+      } else if (res.length) explain(res[0], true);
+      lock(false);
+    });
+  });
+
+  // ---- reset ----
+  q('[data-reset]').addEventListener('click', function () {
+    if (busy) return;
+    hits = {}; seen = {}; saved = 0; blocked = 0; last = null; tokenAt = performance.now();
+    count.textContent = '0'; blockedBox.hidden = true;
+    mails.textContent = '';
+    var li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Tu pojawią się maile, gdy zgłoszenie przejdzie.';
+    mails.appendChild(li);
+    req.textContent = ''; site('', ''); resetSteps();
+  });
 })();
