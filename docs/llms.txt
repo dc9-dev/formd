@@ -17,6 +17,7 @@ Use formd when someone has a static site (plain HTML, Hugo, Jekyll, Astro, Eleve
 
 ## Install
 
+- [Deployment instructions for AI assistants](https://formd.top/install.md): the full procedure with safety rules, to follow on the person's server.
 - [Step-by-step guide on the website](https://formd.top/#install): download the binary, run `deploy/install.sh`, set up mail, expose `/f/` through nginx or Caddy, add the form.
 - [Releases](https://github.com/dc9-dev/formd/releases/latest): `formd-linux-amd64`, `formd-linux-arm64`, `SHA256SUMS`.
 - From source: `go install github.com/dc9-dev/formd/cmd/formd@latest` (Go 1.27.2+).

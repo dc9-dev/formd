@@ -222,6 +222,30 @@
       document.querySelectorAll('[data-base]').forEach(function (n) { n.textContent = other ? 'https://' + host : ''; });
       document.querySelectorAll('.install [data-variant]').forEach(function (n) { n.hidden = n.getAttribute('data-variant') !== (other ? 'other' : 'same'); });
     }
+    // "Copy instructions for AI": install.md with the person's setup on top,
+    // so an assistant can deploy without asking for what is already known.
+    // The file is fetched up front: Safari only allows a clipboard write
+    // directly inside the click, not after a network round trip.
+    var aiBtn = document.querySelector('[data-ai-copy]'), aiStatus = document.querySelector('[data-ai-status]'), aiDoc = null;
+    if (aiBtn) fetch(aiBtn.getAttribute('data-src'), { credentials: 'omit' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (md) { aiDoc = md; }, function () {});
+    if (aiBtn) aiBtn.addEventListener('click', function () {
+      var typed = clean(input.value), other = setup.querySelector('input[name=where]:checked').value === 'other';
+      var head = [t('Help me deploy formd on my Linux server. Follow the instructions below step by step.', 'Pomóż mi wdrożyć formd na moim serwerze z Linuksem. Postępuj krok po kroku według instrukcji poniżej.'), '', 'My setup:'];
+      head.push(typed ? '- Site domain: ' + typed : '- Site domain: ask me');
+      head.push(other
+        ? '- The site is hosted elsewhere (GitHub Pages, Netlify, S3). formd should run on this server at https://forms.' + (typed || '<domain>') + '/f/'
+        : '- The site runs on this same server. formd should be at https://' + (typed || '<domain>') + '/f/');
+      if (!EN) head.push('- Reply to me in Polish and set FORMD_LANG=pl.');
+      var done = function (ok) {
+        aiStatus.textContent = ok ? t('Copied. Paste it into your AI assistant.', 'Skopiowano. Wklej to swojemu asystentowi AI.') : t('Could not copy. Open install.md and copy it from there.', 'Nie udało się skopiować. Otwórz install.md i skopiuj stamtąd.');
+        aiStatus.style.color = ok ? '' : 'var(--red)';
+      };
+      if (!aiDoc || !navigator.clipboard) { done(false); return; }
+      navigator.clipboard.writeText(head.join('\n') + '\n\n---\n\n' + aiDoc).then(function () { done(true); }, function () { done(false); });
+    });
+
     setup.addEventListener('input', apply);
     setup.addEventListener('change', apply);
     setup.addEventListener('submit', function (e) { e.preventDefault(); });
