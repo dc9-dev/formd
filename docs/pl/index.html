@@ -35,7 +35,7 @@
   "inLanguage": "pl",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux",
-  "softwareVersion": "0.1.0",
+  "softwareVersion": "0.2.0",
   "downloadUrl": "https://github.com/dc9-dev/formd/releases/latest",
   "license": "https://www.gnu.org/licenses/agpl-3.0.html",
   "isAccessibleForFree": true,
@@ -280,8 +280,8 @@
         <p>Jedna statycznie linkowana binarka dla Linuksa x86-64 albo ARM64. Sprawdź sumę kontrolną przed instalacją.</p>
         <p class="g-alt">Wolisz zbudować sam? Wystarczy Go 1.27.2 lub nowsze: <code>go build -o formd ./cmd/formd</code> w sklonowanym repozytorium.</p>
       </div>
-      <div class="g-code" data-label="serwer"><pre><code>curl -LO https://github.com/dc9-dev/formd/releases/download/v0.1.0/formd-linux-amd64
-curl -LO https://github.com/dc9-dev/formd/releases/download/v0.1.0/SHA256SUMS
+      <div class="g-code" data-label="serwer"><pre><code>curl -LO https://github.com/dc9-dev/formd/releases/download/v0.2.0/formd-linux-amd64
+curl -LO https://github.com/dc9-dev/formd/releases/download/v0.2.0/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS</code></pre></div>
     </li>
 
@@ -290,7 +290,7 @@ sha256sum --check --ignore-missing SHA256SUMS</code></pre></div>
         <h3>Zainstaluj usługę</h3>
         <p>Skrypt zakłada systemowego użytkownika <code>formd</code>, kopiuje binarkę do <code>/usr/local/bin</code>, tworzy <code>/etc/formd/formd.env</code> z uprawnieniami 0640 i instaluje utwardzoną jednostkę systemd.</p>
       </div>
-      <div class="g-code" data-label="serwer"><pre><code>git clone --depth 1 --branch v0.1.0 https://github.com/dc9-dev/formd
+      <div class="g-code" data-label="serwer"><pre><code>git clone --depth 1 --branch v0.2.0 https://github.com/dc9-dev/formd
 cd formd
 sudo sh deploy/install.sh ../formd-linux-amd64</code></pre></div>
     </li>

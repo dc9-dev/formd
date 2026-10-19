@@ -44,7 +44,7 @@ try {
   "inLanguage": "en",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux",
-  "softwareVersion": "0.1.0",
+  "softwareVersion": "0.2.0",
   "downloadUrl": "https://github.com/dc9-dev/formd/releases/latest",
   "license": "https://www.gnu.org/licenses/agpl-3.0.html",
   "isAccessibleForFree": true,
@@ -289,8 +289,8 @@ try {
         <p>One statically linked binary for Linux x86-64 or ARM64. Verify the checksum before installing.</p>
         <p class="g-alt">Prefer to build it yourself? You only need Go 1.27.2 or newer: <code>go build -o formd ./cmd/formd</code> in a clone of the repository.</p>
       </div>
-      <div class="g-code" data-label="server"><pre><code>curl -LO https://github.com/dc9-dev/formd/releases/download/v0.1.0/formd-linux-amd64
-curl -LO https://github.com/dc9-dev/formd/releases/download/v0.1.0/SHA256SUMS
+      <div class="g-code" data-label="server"><pre><code>curl -LO https://github.com/dc9-dev/formd/releases/download/v0.2.0/formd-linux-amd64
+curl -LO https://github.com/dc9-dev/formd/releases/download/v0.2.0/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS</code></pre></div>
     </li>
 
@@ -299,7 +299,7 @@ sha256sum --check --ignore-missing SHA256SUMS</code></pre></div>
         <h3>Install the service</h3>
         <p>The script creates a <code>formd</code> system user, copies the binary to <code>/usr/local/bin</code>, creates <code>/etc/formd/formd.env</code> with mode 0640 and installs a hardened systemd unit.</p>
       </div>
-      <div class="g-code" data-label="server"><pre><code>git clone --depth 1 --branch v0.1.0 https://github.com/dc9-dev/formd
+      <div class="g-code" data-label="server"><pre><code>git clone --depth 1 --branch v0.2.0 https://github.com/dc9-dev/formd
 cd formd
 sudo sh deploy/install.sh ../formd-linux-amd64</code></pre></div>
     </li>
