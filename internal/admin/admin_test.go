@@ -189,7 +189,7 @@ func TestLoginThrottleAndCSRF(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		c.login("nope nope nope")
 	}
-	if w := c.login("correct horse battery"); w.Code != 401 || !strings.Contains(w.Body.String(), "Zbyt wiele") {
+	if w := c.login("correct horse battery"); w.Code != 401 || !strings.Contains(w.Body.String(), "Too many") {
 		t.Fatalf("throttle not applied: %d", w.Code)
 	}
 }

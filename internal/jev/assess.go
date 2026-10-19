@@ -6,6 +6,8 @@ import (
 	"math"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/dc9-dev/formd/internal/i18n"
 )
 
 // Field is one submitted value as seen by the assessor.
@@ -145,24 +147,24 @@ func Interpret(answers map[string]Answer, threshold float64) Assessment {
 // Summary is a one-line, human readable description (for mails and logs).
 func (a Assessment) Summary() string {
 	if a.Error != "" {
-		return "nie oceniono (" + a.Error + ")"
+		return i18n.T("not assessed") + " (" + a.Error + ")"
 	}
-	return fmt.Sprintf("%s (%.0f%%) · spam %.0f%% · oszustwo %.0f%% · obraźliwe %.0f%% · pilność %d/5",
+	return i18n.Sprintf("%s (%.0f%%) · spam %.0f%% · scam %.0f%% · abusive %.0f%% · urgency %d/5",
 		CategoryLabel(a.Category), a.CategoryConfidence*100, a.Spam*100, a.Scam*100, a.Abusive*100, a.Urgency)
 }
 
 func CategoryLabel(c string) string {
 	switch c {
 	case "question":
-		return "pytanie"
+		return i18n.T("question")
 	case "offer":
-		return "zamówienie/oferta"
+		return i18n.T("order/quote")
 	case "complaint":
-		return "reklamacja"
+		return i18n.T("complaint")
 	case "feedback":
-		return "opinia"
+		return i18n.T("feedback")
 	}
-	return "inne"
+	return i18n.T("other")
 }
 
 // ---- helpers ----

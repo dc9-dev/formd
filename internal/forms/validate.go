@@ -14,6 +14,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/dc9-dev/formd/internal/i18n"
 )
 
 var (
@@ -90,7 +92,7 @@ var linkRe = regexp.MustCompile(`(?i)(https?://|www\.|\[url|<a\s)`)
 // Validate checks the submission against the form definition. It never trusts
 // the client: unknown fields are rejected, lengths are counted in runes,
 // control characters are refused, and newlines are only allowed in textareas.
-func (f *Form) Validate(in url.Values) Result {
+func (f *Form) Validate(in url.Values, lang i18n.Lang) Result {
 	res := Result{Values: map[string]string{}, Errors: map[string]string{}}
 
 	for key := range in {
@@ -99,7 +101,7 @@ func (f *Form) Validate(in url.Values) Result {
 		case f.Def.Honeypot != "" && key == f.Def.Honeypot:
 		case f.fields[key] != nil:
 		default:
-			res.Errors["_form"] = "nieznane pole: " + truncate(key, 64)
+			res.Errors["_form"] = i18n.In(lang, "unknown field: ") + truncate(key, 64)
 		}
 	}
 	if len(res.Errors) > 0 {
@@ -116,7 +118,7 @@ func (f *Form) Validate(in url.Values) Result {
 	for _, fl := range f.Def.Fields {
 		vals := in[fl.Name]
 		if len(vals) > 20 {
-			res.Errors[fl.Name] = "zbyt wiele wartości"
+			res.Errors[fl.Name] = i18n.In(lang, "too many values")
 			continue
 		}
 		v := strings.Join(vals, ", ")
@@ -124,26 +126,26 @@ func (f *Form) Validate(in url.Values) Result {
 		v = strings.TrimSpace(v)
 
 		if !utf8.ValidString(v) {
-			res.Errors[fl.Name] = "nieprawidłowe kodowanie znaków"
+			res.Errors[fl.Name] = i18n.In(lang, "invalid character encoding")
 			continue
 		}
 		if msg := badChars(v, fl.Type == TypeTextarea); msg != "" {
-			res.Errors[fl.Name] = msg
+			res.Errors[fl.Name] = i18n.In(lang, msg)
 			continue
 		}
 		if v == "" {
 			if fl.Required {
-				res.Errors[fl.Name] = "pole wymagane"
+				res.Errors[fl.Name] = i18n.In(lang, "this field is required")
 			}
 			continue
 		}
 		if utf8.RuneCountInString(v) > fl.Max {
-			res.Errors[fl.Name] = fmt.Sprintf("maksymalnie %d znaków", fl.Max)
+			res.Errors[fl.Name] = fmt.Sprintf(i18n.In(lang, "at most %d characters"), fl.Max)
 			continue
 		}
 		if fl.Type == TypeEmail {
 			if _, err := ParseEmail(v); err != nil {
-				res.Errors[fl.Name] = "nieprawidłowy adres e-mail"
+				res.Errors[fl.Name] = i18n.In(lang, "invalid email address")
 				continue
 			}
 		}
@@ -167,7 +169,7 @@ func (f *Form) Validate(in url.Values) Result {
 	return res
 }
 
-// badChars refuses control characters (header/log injection, invisible
+// badChars refuses control characters (the message is an i18n key) (header/log injection, invisible
 // payloads). Tabs are allowed everywhere, newlines only in multi-line fields.
 func badChars(v string, multiline bool) string {
 	for _, r := range v {
@@ -175,12 +177,12 @@ func badChars(v string, multiline bool) string {
 		case r == '\t':
 		case r == '\n':
 			if !multiline {
-				return "pole nie może zawierać nowych linii"
+				return "this field cannot contain line breaks"
 			}
 		case r == '\r', unicode.IsControl(r), r == '\u2028', r == '\u2029', r == '\ufeff':
-			return "pole zawiera niedozwolone znaki"
+			return "this field contains characters that are not allowed"
 		case unicode.In(r, unicode.Bidi_Control):
-			return "pole zawiera niedozwolone znaki"
+			return "this field contains characters that are not allowed"
 		}
 	}
 	return ""

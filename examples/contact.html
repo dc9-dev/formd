@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kontakt</title>
+<title>Contact</title>
 <style>
   body{font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 1rem}
   label{display:block;margin:.8rem 0}
@@ -13,18 +13,18 @@
 </style>
 </head>
 <body>
-<h1>Napisz do nas</h1>
+<h1>Get in touch</h1>
 
-<!-- /f/ jest przekazywane przez nginx/Caddy do formd na 127.0.0.1:8025 -->
-<form action="/f/kontakt" method="post" data-formd="ajax">
-  <label>Imię <input name="name" maxlength="200" required></label>
-  <label>E-mail <input type="email" name="email" maxlength="254" required></label>
-  <label>Wiadomość <textarea name="message" rows="6" maxlength="5000" required></textarea></label>
+<!-- nginx/Caddy passes /f/ to formd on 127.0.0.1:8025 -->
+<form action="/f/contact" method="post" data-formd="ajax">
+  <label>Name <input name="name" maxlength="200" required></label>
+  <label>Email <input type="email" name="email" maxlength="254" required></label>
+  <label>Message <textarea name="message" rows="6" maxlength="5000" required></textarea></label>
 
-  <!-- honeypot: ukryty CSS-em, ludzie go nie widzą, boty wypełniają -->
+  <!-- honeypot: hidden with CSS; people never see it, bots fill it in -->
   <div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
 
-  <button type="submit">Wyślij</button>
+  <button type="submit">Send</button>
   <p data-formd-status role="status"></p>
 </form>
 

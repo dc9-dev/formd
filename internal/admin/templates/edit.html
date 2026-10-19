@@ -1,7 +1,7 @@
-{{define "crumbs"}}<a class="crumb" href="/">← Formularze</a>{{end}}
+{{define "crumbs"}}<a class="crumb" href="/">← {{t "Forms"}}</a>{{end}}
 {{define "actions"}}{{$d := .Data.Def}}
-<a class="btn" href="/forms/{{$d.ID}}/submissions">Zgłoszenia</a>
-<a class="btn" href="/forms/{{$d.ID}}/snippet">Kod HTML</a>
+<a class="btn" href="/forms/{{$d.ID}}/submissions">{{t "Submissions"}}</a>
+<a class="btn" href="/forms/{{$d.ID}}/snippet">{{t "HTML code"}}</a>
 {{end}}
 {{define "content"}}
 {{$d := .Data.Def}}
@@ -10,28 +10,28 @@
 
 <section class="panel">
   <div class="panel-head">
-    <div><h2>Ogólne</h2><p>Endpoint <code>POST /f/{{$d.ID}}</code></p></div>
-    <label class="switch"><input type="checkbox" name="enabled" value="1" {{if $d.Enabled}}checked{{end}}><span></span>Aktywny</label>
+    <div><h2>{{t "General"}}</h2><p>Endpoint <code>POST /f/{{$d.ID}}</code></p></div>
+    <label class="switch"><input type="checkbox" name="enabled" value="1" {{if $d.Enabled}}checked{{end}}><span></span>{{t "Active"}}</label>
   </div>
   <div class="grid2">
-    <label class="field">Nazwa<input name="title" value="{{$d.Title}}" maxlength="200"></label>
-    <label class="field">Dozwolone originy<small>Jeden na linię.</small><textarea name="allowed_origins" rows="2">{{lines $d.AllowedOrigins}}</textarea></label>
-    <label class="field">Przekierowanie po sukcesie<small>Opcjonalne, dla formularzy bez JS.</small><input name="redirect_success" value="{{$d.RedirectSuccess}}" placeholder="https://example.com/dziekujemy.html"></label>
-    <label class="field">Przekierowanie po błędzie<small>Opcjonalne.</small><input name="redirect_error" value="{{$d.RedirectError}}" placeholder="https://example.com/blad.html"></label>
+    <label class="field">{{t "Form name"}}<input name="title" value="{{$d.Title}}" maxlength="200"></label>
+    <label class="field">{{t "Allowed origins"}}<small>{{t "One per line."}}</small><textarea name="allowed_origins" rows="2">{{lines $d.AllowedOrigins}}</textarea></label>
+    <label class="field">{{t "Redirect after success"}}<small>{{t "Optional, for forms without JS."}}</small><input name="redirect_success" value="{{$d.RedirectSuccess}}" placeholder="{{t "https://example.com/thank-you.html"}}"></label>
+    <label class="field">{{t "Redirect after an error"}}<small>{{t "Optional."}}</small><input name="redirect_error" value="{{$d.RedirectError}}" placeholder="{{t "https://example.com/error.html"}}"></label>
   </div>
 </section>
 
 <section class="panel">
-  <div class="panel-head"><div><h2>Pola</h2><p>Pola spoza listy są odrzucane. Aby usunąć pole, wyczyść jego nazwę.</p></div></div>
+  <div class="panel-head"><div><h2>{{t "Fields"}}</h2><p>{{t "Fields that are not on the list are rejected. To remove a field, clear its name."}}</p></div></div>
   <div class="fields">
-    <div class="frow fhead"><span>Nazwa</span><span>Etykieta</span><span>Typ</span><span>Wymagane</span><span>Max znaków</span></div>
+    <div class="frow fhead"><span>{{t "Field name"}}</span><span>{{t "Label"}}</span><span>{{t "Type"}}</span><span>{{t "Required"}}</span><span>{{t "Max characters"}}</span></div>
     {{range .Data.Rows}}{{$t := .Type}}
     <div class="frow">
-      <input name="field_name" value="{{.Name}}" maxlength="64" placeholder="nowe pole" aria-label="Nazwa pola">
-      <input name="field_label" value="{{.Label}}" maxlength="200" aria-label="Etykieta">
-      <select name="field_type" aria-label="Typ">{{range $.Data.Types}}<option value="{{.}}" {{if eq . $t}}selected{{end}}>{{.}}</option>{{end}}</select>
-      <select name="field_required" aria-label="Wymagane"><option value="0">nie</option><option value="1" {{if .Required}}selected{{end}}>tak</option></select>
-      <input name="field_max" value="{{if .Max}}{{.Max}}{{end}}" inputmode="numeric" aria-label="Max znaków">
+      <input name="field_name" value="{{.Name}}" maxlength="64" placeholder="{{t "new field"}}" aria-label="{{t "Field name"}}">
+      <input name="field_label" value="{{.Label}}" maxlength="200" aria-label="{{t "Label"}}">
+      <select name="field_type" aria-label="{{t "Type"}}">{{range $.Data.Types}}<option value="{{.}}" {{if eq . $t}}selected{{end}}>{{.}}</option>{{end}}</select>
+      <select name="field_required" aria-label="{{t "Required"}}"><option value="0">{{t "no"}}</option><option value="1" {{if .Required}}selected{{end}}>{{t "yes"}}</option></select>
+      <input name="field_max" value="{{if .Max}}{{.Max}}{{end}}" inputmode="numeric" aria-label="{{t "Max characters"}}">
     </div>
     {{end}}
   </div>
@@ -39,79 +39,79 @@
 
 <section class="panel">
   <div class="panel-head">
-    <div><h2>Ochrona przed nadużyciami</h2><p>Podpisany token + proof-of-work zamiast captchy. Wymaga <code>formd.js</code> na stronie.</p></div>
+    <div><h2>{{t "Abuse protection"}}</h2><p>{{th "A signed token and proof-of-work instead of a captcha. Needs <code>formd.js</code> on the site."}}</p></div>
     <label class="switch"><input type="checkbox" name="challenge" value="1" {{if $d.Challenge}}checked{{end}}><span></span>Challenge</label>
   </div>
   <div class="grid3">
-    <label class="field">Trudność PoW<small>Bity, 0–24. 16 ≈ ułamek sekundy.</small><input name="pow_bits" value="{{$d.PowBits}}" inputmode="numeric"></label>
-    <label class="field">Min. czas wypełnienia<small>Sekundy, liczone na serwerze.</small><input name="min_seconds" value="{{$d.MinSeconds}}" inputmode="numeric"></label>
-    <label class="field">Pole-pułapka<small>Honeypot, ukryte CSS-em.</small><input name="honeypot" value="{{$d.Honeypot}}" maxlength="64"></label>
-    <label class="field">Zgłoszeń per IP<small>W oknie poniżej.</small><input name="rate_per_ip" value="{{$d.RatePerIP}}" inputmode="numeric"></label>
-    <label class="field">Okno limitu<small>Minuty.</small><input name="rate_window_min" value="{{$d.RateWindowMin}}" inputmode="numeric"></label>
-    <label class="field">Max na godzinę<small>Cały formularz, 0 = bez limitu.</small><input name="hourly_cap" value="{{$d.HourlyCap}}" inputmode="numeric"></label>
-    <label class="field">Max linków<small>Puste = bez limitu.</small><input name="max_links" value="{{if ge $d.MaxLinks 0}}{{$d.MaxLinks}}{{end}}" inputmode="numeric"></label>
-    <label class="field">Duplikaty<small>Odrzucaj z ostatnich N godzin.</small><input name="dedupe_hours" value="{{$d.DedupeHours}}" inputmode="numeric"></label>
-    <label class="field">Retencja<small>Usuwaj po N dniach, 0 = nigdy.</small><input name="retention_days" value="{{$d.RetentionDays}}" inputmode="numeric"></label>
+    <label class="field">{{t "PoW difficulty"}}<small>{{t "Bits, 0–24. 16 ≈ a fraction of a second."}}</small><input name="pow_bits" value="{{$d.PowBits}}" inputmode="numeric"></label>
+    <label class="field">{{t "Min. fill time"}}<small>{{t "Seconds, measured on the server."}}</small><input name="min_seconds" value="{{$d.MinSeconds}}" inputmode="numeric"></label>
+    <label class="field">{{t "Honeypot field"}}<small>{{t "Hidden with CSS."}}</small><input name="honeypot" value="{{$d.Honeypot}}" maxlength="64"></label>
+    <label class="field">{{t "Submissions per IP"}}<small>{{t "Within the window below."}}</small><input name="rate_per_ip" value="{{$d.RatePerIP}}" inputmode="numeric"></label>
+    <label class="field">{{t "Limit window"}}<small>{{t "Minutes."}}</small><input name="rate_window_min" value="{{$d.RateWindowMin}}" inputmode="numeric"></label>
+    <label class="field">{{t "Max per hour"}}<small>{{t "Whole form, 0 = no limit."}}</small><input name="hourly_cap" value="{{$d.HourlyCap}}" inputmode="numeric"></label>
+    <label class="field">{{t "Max links"}}<small>{{t "Empty = no limit."}}</small><input name="max_links" value="{{if ge $d.MaxLinks 0}}{{$d.MaxLinks}}{{end}}" inputmode="numeric"></label>
+    <label class="field">{{t "Duplicates"}}<small>{{t "Reject repeats from the last N hours."}}</small><input name="dedupe_hours" value="{{$d.DedupeHours}}" inputmode="numeric"></label>
+    <label class="field">{{t "Retention"}}<small>{{t "Delete after N days, 0 = never."}}</small><input name="retention_days" value="{{$d.RetentionDays}}" inputmode="numeric"></label>
   </div>
-  <label class="field">Zablokowane frazy<small>Jedna na linię, bez rozróżniania wielkości liter.</small><textarea name="blocked_words" rows="2">{{lines $d.BlockedWords}}</textarea></label>
+  <label class="field">{{t "Blocked phrases"}}<small>{{t "One per line, case-insensitive."}}</small><textarea name="blocked_words" rows="2">{{lines $d.BlockedWords}}</textarea></label>
 </section>
 
 <section class="panel">
   <div class="panel-head">
-    <div><h2>Ocena treści (Jev)</h2><p>Model <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev" rel="noreferrer">Jev</a> ocenia, czy wiadomość to spam, oszustwo lub treść obraźliwa, i nadaje jej kategorię oraz pilność. Działa po wszystkich pozostałych filtrach.</p></div>
-    <label class="switch"><input type="checkbox" name="jev_enabled" value="1" {{if $d.JevEnabled}}checked{{end}}><span></span>Włączona</label>
+    <div><h2>{{t "Content check (Jev)"}}</h2><p>{{th "A language model (<a href=\"https://typesafe.ai/blog/introducing-system-one-models-and-jev\" rel=\"noreferrer\">Jev</a> or a self-hosted basal model) judges whether a message is spam, a scam or abusive, and gives it a category and an urgency. It runs after all the other filters."}}</p></div>
+    <label class="switch"><input type="checkbox" name="jev_enabled" value="1" {{if $d.JevEnabled}}checked{{end}}><span></span>{{t "On"}}</label>
   </div>
-  {{if not .Data.JevReady}}<div class="note bad">Ocena treści nie jest skonfigurowana na serwerze: ustaw <code>OPENROUTER_API_KEY</code> albo <code>JEV_PROVIDER=basal</code>. Do tego czasu zgłoszenia będą oznaczane jako „nie oceniono”.</div>
-  {{else if .Data.JevLocal}}<div class="note local">Ocenia model <code>{{.Data.JevModel}}</code> na Twoim serwerze (basal-serve). Treść pól nie opuszcza serwera.</div>
-  {{else}}<div class="note warn">Treść pól jest wysyłana do zewnętrznego API (model <code>{{.Data.JevModel}}</code>). Adresy e-mail są zastępowane samą domeną. Uwzględnij to w polityce prywatności strony.</div>{{end}}
+  {{if not .Data.JevReady}}<div class="note bad">{{th "Content checks are not configured on the server: set <code>OPENROUTER_API_KEY</code> or <code>JEV_PROVIDER=basal</code>. Until then, submissions are marked “not assessed”."}}</div>
+  {{else if .Data.JevLocal}}<div class="note local">{{thf "The model <code>%s</code> on your server (basal-serve) does the check. Field contents never leave the server." .Data.JevModel}}</div>
+  {{else}}<div class="note warn">{{thf "Field contents are sent to an external API (model <code>%s</code>). Email addresses are reduced to their domain. Mention this in your site's privacy policy." .Data.JevModel}}</div>{{end}}
   <div class="grid3">
-    <label class="field">Gdy treść jest podejrzana<small>Ryzyko = max(spam, oszustwo, obraźliwe).</small>
+    <label class="field">{{t "When content looks suspicious"}}<small>{{t "Risk = max(spam, scam, abusive)."}}</small>
       <select name="jev_action">
-        <option value="hold" {{if eq $d.JevAction "hold"}}selected{{end}}>Wstrzymaj do zatwierdzenia</option>
-        <option value="tag" {{if eq $d.JevAction "tag"}}selected{{end}}>Tylko oznacz [SPAM?]</option>
-        <option value="drop" {{if eq $d.JevAction "drop"}}selected{{end}}>Odrzuć bez zapisu</option>
+        <option value="hold" {{if eq $d.JevAction "hold"}}selected{{end}}>{{t "Hold for approval"}}</option>
+        <option value="tag" {{if eq $d.JevAction "tag"}}selected{{end}}>{{t "Only tag it [SPAM?]"}}</option>
+        <option value="drop" {{if eq $d.JevAction "drop"}}selected{{end}}>{{t "Drop without saving"}}</option>
       </select></label>
-    <label class="field">Próg ryzyka<small>Procent, od którego treść jest podejrzana.</small><input name="jev_threshold" value="{{$d.JevThreshold}}" inputmode="numeric"></label>
-    <label class="field">Gdy ocena się nie uda<small>Timeout, brak budżetu, błąd API.</small>
+    <label class="field">{{t "Risk threshold"}}<small>{{t "The percentage from which content counts as suspicious."}}</small><input name="jev_threshold" value="{{$d.JevThreshold}}" inputmode="numeric"></label>
+    <label class="field">{{t "When the check fails"}}<small>{{t "Timeout, no budget left, API error."}}</small>
       <select name="jev_hold_on_error">
-        <option value="0">Przepuść (zalecane)</option>
-        <option value="1" {{if $d.JevHoldOnError}}selected{{end}}>Wstrzymaj</option>
+        <option value="0">{{t "Let it through (recommended)"}}</option>
+        <option value="1" {{if $d.JevHoldOnError}}selected{{end}}>{{t "Hold it"}}</option>
       </select></label>
   </div>
-  <label class="field">O czym jest strona<small>Krótki opis pomaga odróżnić prawdziwe zapytania od spamu, np. „Gabinet stomatologiczny w Krakowie”. Max 300 znaków.</small><input name="jev_context" value="{{$d.JevContext}}" maxlength="300"></label>
+  <label class="field">{{t "What the site is about"}}<small>{{t "A short description helps tell real enquiries from spam, e.g. “Dental clinic in Krakow”. Max 300 characters."}}</small><input name="jev_context" value="{{$d.JevContext}}" maxlength="300"></label>
 </section>
 
 <section class="panel">
-  <div class="panel-head"><div><h2>Powiadomienie</h2><p>Mail do Ciebie po każdym zgłoszeniu.</p></div></div>
+  <div class="panel-head"><div><h2>{{t "Notification"}}</h2><p>{{t "An email to you after every submission."}}</p></div></div>
   <div class="grid2">
-    <label class="field">Odbiorcy<small>Jeden adres na linię.</small><textarea name="notify" rows="2">{{lines $d.Notify}}</textarea></label>
+    <label class="field">{{t "Recipients"}}<small>{{t "One address per line."}}</small><textarea name="notify" rows="2">{{lines $d.Notify}}</textarea></label>
     <div class="stack">
-      <label class="field">Temat<small>Szablon, np. <code>{{"{{.name}}"}}</code></small><input name="notify_subject" value="{{$d.NotifySubject}}" maxlength="500"></label>
-      <label class="field">Pole Reply-To<small>Pole typu email.</small><input name="reply_to_field" value="{{$d.ReplyToField}}" maxlength="64"></label>
+      <label class="field">{{t "Subject"}}<small>{{th "A template, e.g. <code>{{.name}}</code>"}}</small><input name="notify_subject" value="{{$d.NotifySubject}}" maxlength="500"></label>
+      <label class="field">{{t "Reply-To field"}}<small>{{t "An email field."}}</small><input name="reply_to_field" value="{{$d.ReplyToField}}" maxlength="64"></label>
     </div>
   </div>
 </section>
 
 <section class="panel">
   <div class="panel-head">
-    <div><h2>Potwierdzenie do nadawcy</h2><p>Automatyczna odpowiedź na adres podany w formularzu.</p></div>
-    <label class="switch"><input type="checkbox" name="confirm_enabled" value="1" {{if $d.ConfirmEnabled}}checked{{end}}><span></span>Wysyłaj</label>
+    <div><h2>{{t "Confirmation to the sender"}}</h2><p>{{t "An automatic reply to the address entered in the form."}}</p></div>
+    <label class="switch"><input type="checkbox" name="confirm_enabled" value="1" {{if $d.ConfirmEnabled}}checked{{end}}><span></span>{{t "Send"}}</label>
   </div>
-  <div class="note warn">Adres wpisuje dowolna osoba. Nie wklejaj do potwierdzenia treści pól od użytkownika (np. wiadomości), bo spamer mógłby wysyłać przez Ciebie własne treści do obcych ludzi.</div>
+  <div class="note warn">{{t "Anyone can type in the address. Don't put the sender's own fields (such as the message) into the confirmation, or a spammer could send their content to strangers through you."}}</div>
   <div class="grid3">
-    <label class="field">Pole z adresem<input name="confirm_to_field" value="{{$d.ConfirmToField}}" maxlength="64"></label>
-    <label class="field">Limit na adres / 24 h<input name="confirm_per_recipient_day" value="{{$d.ConfirmPerRecipientDay}}" inputmode="numeric"></label>
-    <label class="field">Temat<input name="confirm_subject" value="{{$d.ConfirmSubject}}" maxlength="500"></label>
+    <label class="field">{{t "Address field"}}<input name="confirm_to_field" value="{{$d.ConfirmToField}}" maxlength="64"></label>
+    <label class="field">{{t "Limit per address / 24 h"}}<input name="confirm_per_recipient_day" value="{{$d.ConfirmPerRecipientDay}}" inputmode="numeric"></label>
+    <label class="field">{{t "Subject"}}<input name="confirm_subject" value="{{$d.ConfirmSubject}}" maxlength="500"></label>
   </div>
   <div class="grid2">
-    <label class="field">Treść tekstowa<small>Szablon Go.</small><textarea class="code" name="confirm_text" rows="6">{{$d.ConfirmText}}</textarea></label>
-    <label class="field">Treść HTML<small>Opcjonalna; wartości są escapowane.</small><textarea class="code" name="confirm_html" rows="6">{{$d.ConfirmHTML}}</textarea></label>
+    <label class="field">{{t "Text body"}}<small>{{t "A Go template."}}</small><textarea class="code" name="confirm_text" rows="6">{{$d.ConfirmText}}</textarea></label>
+    <label class="field">{{t "HTML body"}}<small>{{t "Optional; values are escaped."}}</small><textarea class="code" name="confirm_html" rows="6">{{$d.ConfirmHTML}}</textarea></label>
   </div>
 </section>
 
 <div class="savebar">
-  <a class="danger-link" href="/forms/{{$d.ID}}/delete">Usuń formularz</a>
-  <button class="btn primary">Zapisz zmiany</button>
+  <a class="danger-link" href="/forms/{{$d.ID}}/delete">{{t "Delete form"}}</a>
+  <button class="btn primary">{{t "Save changes"}}</button>
 </div>
 </form>
 {{end}}

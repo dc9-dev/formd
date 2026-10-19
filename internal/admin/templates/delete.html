@@ -2,8 +2,8 @@
 {{define "content"}}
 <form method="post" action="/forms/{{.Data.ID}}/delete" class="panel narrow stack">
   <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
-  <p>Usunięcie formularza <code>{{.Data.ID}}</code> skasuje też <b>wszystkie jego zgłoszenia</b> i kolejkę maili. Tego nie da się cofnąć.</p>
-  <label class="field">Wpisz <code>{{.Data.ID}}</code>, aby potwierdzić<input name="confirm" autocomplete="off" required></label>
-  <div><button class="btn danger">Usuń na zawsze</button></div>
+  <p>{{thf "Deleting the form <code>%s</code> also deletes <b>all its submissions</b> and its mail queue. This cannot be undone." .Data.ID}}</p>
+  <label class="field">{{thf "Type <code>%s</code> to confirm" .Data.ID}}<input name="confirm" autocomplete="off" required></label>
+  <div><button class="btn danger">{{t "Delete permanently"}}</button></div>
 </form>
 {{end}}

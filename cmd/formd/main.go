@@ -26,6 +26,7 @@ import (
 	"github.com/dc9-dev/formd/internal/antispam"
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/i18n"
 	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/mail"
 	"github.com/dc9-dev/formd/internal/server"
@@ -35,25 +36,29 @@ import (
 
 var version = "dev"
 
-const usage = `formd — backend formularzy dla stron statycznych
+const usage = `formd: form backend for static sites
 
-Użycie:
-  formd [-env PLIK] <polecenie> [opcje]
+Usage:
+  formd [-env FILE] <command> [options]
 
-Polecenia:
-  serve                         uruchamia API formularzy i panel admina
-  migrate                       tworzy/aktualizuje schemat bazy
-  user add|passwd|del <login>   zarządza kontami panelu
+Commands:
+  serve                         run the form API and the admin panel
+  migrate                       create or update the database schema
+  user add|passwd|del <login>   manage panel accounts
   user list
-  list   -form ID [-since 7d]   wypisuje zgłoszenia
+  list   -form ID [-since 7d]   print submissions
   export -form ID [-format csv|json] [-since 30d]
-  test-mail -to ADRES           wysyła wiadomość testową
+  test-mail -to ADDRESS         send a test email
   version
 `
 
 func main() {
-	envFile := flag.String("env", ".env", "plik z konfiguracją")
-	flag.Usage = func() { fmt.Fprint(os.Stderr, usage) }
+	// Until the config is read, only FORMD_LANG from the environment is known.
+	if l, ok := i18n.Parse(os.Getenv("FORMD_LANG")); ok {
+		i18n.SetDefault(l)
+	}
+	envFile := flag.String("env", ".env", i18n.T("configuration file"))
+	flag.Usage = func() { fmt.Fprint(os.Stderr, i18n.T(usage)) }
 	flag.Parse()
 	args := flag.Args()
 	if len(args) == 0 {
@@ -68,6 +73,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	i18n.SetDefault(cfg.Lang)
 	log := newLogger(cfg.LogLevel)
 
 	switch args[0] {
@@ -97,7 +103,7 @@ func main() {
 }
 
 func fatal(err error) {
-	fmt.Fprintln(os.Stderr, "błąd:", err)
+	fmt.Fprintln(os.Stderr, i18n.T("error:"), err)
 	os.Exit(1)
 }
 
@@ -220,7 +226,7 @@ func newServer(addr string, h http.Handler, log *slog.Logger) *http.Server {
 
 func userCmd(cfg *config.Config, args []string) error {
 	if len(args) == 0 {
-		return errors.New("użycie: formd user add|passwd|del <login> | formd user list")
+		return errors.New(i18n.T("usage: formd user add|passwd|del <login> | formd user list"))
 	}
 	st, err := store.Open(cfg.DBPath)
 	if err != nil {
@@ -235,7 +241,7 @@ func userCmd(cfg *config.Config, args []string) error {
 			return err
 		}
 		for _, u := range users {
-			fmt.Printf("%s\tutworzony %s\thasło zmienione %s\n", u.Username, u.CreatedAt.Format(time.DateOnly), u.PasswordChangedAt.Format(time.DateOnly))
+			fmt.Printf(i18n.T("%s\tcreated %s\tpassword changed %s\n"), u.Username, u.CreatedAt.Format(time.DateOnly), u.PasswordChangedAt.Format(time.DateOnly))
 		}
 		return nil
 	}
@@ -282,20 +288,20 @@ func userCmd(cfg *config.Config, args []string) error {
 func readPassword() (string, error) {
 	var pw string
 	if term.IsTerminal(int(os.Stdin.Fd())) {
-		fmt.Fprint(os.Stderr, "Hasło: ")
+		fmt.Fprint(os.Stderr, i18n.T("Password: "))
 		a, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Fprintln(os.Stderr)
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprint(os.Stderr, "Powtórz: ")
+		fmt.Fprint(os.Stderr, i18n.T("Repeat: "))
 		b, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Fprintln(os.Stderr)
 		if err != nil {
 			return "", err
 		}
 		if string(a) != string(b) {
-			return "", errors.New("hasła nie są identyczne")
+			return "", errors.New(i18n.T("the passwords do not match"))
 		}
 		pw = string(a)
 	} else {
@@ -317,13 +323,13 @@ func parseSince(s string) (time.Time, error) {
 	if d, ok := strings.CutSuffix(s, "d"); ok {
 		n, err := strconv.Atoi(d)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("nieprawidłowe -since %q", s)
+			return time.Time{}, i18n.Errorf("invalid -since %q", s)
 		}
 		return time.Now().AddDate(0, 0, -n), nil
 	}
 	dur, err := time.ParseDuration(s)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("nieprawidłowe -since %q", s)
+		return time.Time{}, i18n.Errorf("invalid -since %q", s)
 	}
 	return time.Now().Add(-dur), nil
 }
@@ -379,7 +385,7 @@ func exportCmd(cfg *config.Config, args []string) error {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
 	formID := fs.String("form", "", "identyfikator formularza")
 	format := fs.String("format", "csv", "csv albo json")
-	since := fs.String("since", "", "zakres, np. 30d (domyślnie wszystko)")
+	since := fs.String("since", "", i18n.T("time range, e.g. 30d (default: everything)"))
 	fs.Parse(args)
 	d, subs, err := loadSubs(cfg, *formID, *since)
 	if err != nil {
@@ -413,11 +419,11 @@ func testMail(cfg *config.Config, log *slog.Logger, args []string) error {
 		return err
 	}
 	err = m.Send(context.Background(), mail.Message{
-		From: cfg.MailFrom, To: *to, Subject: "formd: wiadomość testowa",
-		Text: "Konfiguracja wysyłki formd działa.\n",
+		From: cfg.MailFrom, To: *to, Subject: i18n.T("formd: test message"),
+		Text: i18n.T("formd mail delivery works.\n"),
 	})
 	if err == nil {
-		fmt.Println("wysłano")
+		fmt.Println(i18n.T("sent"))
 	}
 	return err
 }

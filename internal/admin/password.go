@@ -10,6 +10,8 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
+
+	"github.com/dc9-dev/formd/internal/i18n"
 )
 
 // Argon2id parameters (OWASP recommendation: m=19MiB,t=2 minimum; we go higher).
@@ -24,10 +26,10 @@ const MinPasswordLen = 12
 
 func CheckPasswordPolicy(pw string) error {
 	if utf8.RuneCountInString(pw) < MinPasswordLen {
-		return fmt.Errorf("hasło musi mieć co najmniej %d znaków", MinPasswordLen)
+		return i18n.Errorf("the password must have at least %d characters", MinPasswordLen)
 	}
 	if len(pw) > 1024 {
-		return errors.New("hasło jest za długie")
+		return errors.New(i18n.T("the password is too long"))
 	}
 	return nil
 }

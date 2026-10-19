@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/dc9-dev/formd/internal/i18n"
 )
 
 func testForm(t *testing.T) *Form {
@@ -58,7 +60,7 @@ func TestCompileRejectsUnsafeConfig(t *testing.T) {
 func TestValidate(t *testing.T) {
 	f := testForm(t)
 	ok := url.Values{"name": {"Jan"}, "email": {"jan@example.com"}, "message": {"Cześć\r\nlinia 2"}}
-	res := f.Validate(ok)
+	res := f.Validate(ok, i18n.EN)
 	if !res.OK() || res.Spam != "" {
 		t.Fatalf("valid rejected: %+v", res)
 	}
@@ -78,7 +80,7 @@ func TestValidate(t *testing.T) {
 		"invalid utf8":    {"name": {"\xff\xfe"}, "email": {"a@b.pl"}, "message": {"x"}},
 	}
 	for name, in := range cases {
-		if r := f.Validate(in); r.OK() {
+		if r := f.Validate(in, i18n.EN); r.OK() {
 			t.Errorf("%s: accepted", name)
 		}
 	}
@@ -88,7 +90,7 @@ func TestValidate(t *testing.T) {
 		"links":    {"name": {"a"}, "email": {"a@b.pl"}, "message": {"http://a http://b https://c"}},
 	}
 	for name, in := range spam {
-		if r := f.Validate(in); r.Spam == "" {
+		if r := f.Validate(in, i18n.EN); r.Spam == "" {
 			t.Errorf("%s: not flagged as spam", name)
 		}
 	}
@@ -123,5 +125,16 @@ func TestConfirmHTMLEscapes(t *testing.T) {
 	r, _ := f.RenderConfirm(map[string]string{"name": `<script>alert(1)</script>`})
 	if strings.Contains(r.HTML, "<script>") {
 		t.Fatalf("HTML not escaped: %s", r.HTML)
+	}
+}
+
+func TestValidateSpeaksTheVisitorsLanguage(t *testing.T) {
+	f := testForm(t)
+	in := url.Values{"name": {""}, "email": {"a@b.pl"}, "message": {"x"}}
+	if got := f.Validate(in, i18n.EN).Errors["name"]; got != "this field is required" {
+		t.Errorf("en: %q", got)
+	}
+	if got := f.Validate(in, i18n.PL).Errors["name"]; got != "pole wymagane" {
+		t.Errorf("pl: %q", got)
 	}
 }

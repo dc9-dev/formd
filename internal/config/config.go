@@ -16,6 +16,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/dc9-dev/formd/internal/i18n"
 	"github.com/dc9-dev/formd/internal/netutil"
 )
 
@@ -58,6 +59,7 @@ type Config struct {
 	SessionTTL        time.Duration
 	SessionIdle       time.Duration
 	LogLevel          string
+	Lang              i18n.Lang // FORMD_LANG: panel, owner e-mails and CLI
 
 	Jev Jev
 }
@@ -115,6 +117,7 @@ func Load(envFile string) (*Config, error) {
 		SessionTTL:        e.dur("ADMIN_SESSION_TTL", "12h"),
 		SessionIdle:       e.dur("ADMIN_SESSION_IDLE", "1h"),
 		LogLevel:          e.str("LOG_LEVEL", "info"),
+		Lang:              e.lang("FORMD_LANG", "en"),
 		Jev:               loadJev(e),
 		SMTP: SMTP{
 			Host: e.str("SMTP_HOST", ""),
@@ -230,6 +233,15 @@ func loadJev(e *envReader) Jev {
 }
 
 type envReader struct{ errs []error }
+
+func (e *envReader) lang(key, def string) i18n.Lang {
+	v := e.str(key, def)
+	l, ok := i18n.Parse(v)
+	if !ok {
+		e.errs = append(e.errs, fmt.Errorf("%s must be en or pl, got %q", key, v))
+	}
+	return l
+}
 
 func (e *envReader) str(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok {

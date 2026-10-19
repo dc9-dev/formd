@@ -1,10 +1,10 @@
 {{define "crumbs"}}<a class="crumb" href="/forms/{{.Data.Def.ID}}">← {{.Data.Def.Title}}</a>{{end}}
-{{define "actions"}}<a class="btn" href="/forms/{{.Data.Def.ID}}/export.csv"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Eksport CSV</a>{{end}}
+{{define "actions"}}<a class="btn" href="/forms/{{.Data.Def.ID}}/export.csv"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>{{t "Export CSV"}}</a>{{end}}
 {{define "content"}}
 {{$d := .Data.Def}}{{$csrf := .Session.CSRF}}{{$st := .Data.Status}}
 <nav class="tabs">
-  <a href="?" {{if eq $st ""}}class="on"{{end}}>Wszystkie</a>
-  <a href="?status=held" {{if eq $st "held"}}class="on"{{end}}>Wstrzymane{{if .Data.Held}} <span class="badge-n">{{.Data.Held}}</span>{{end}}</a>
+  <a href="?" {{if eq $st ""}}class="on"{{end}}>{{t "All"}}</a>
+  <a href="?status=held" {{if eq $st "held"}}class="on"{{end}}>{{t "Held"}}{{if .Data.Held}} <span class="badge-n">{{.Data.Held}}</span>{{end}}</a>
 </nav>
 {{if .Data.Subs}}
 <div class="subs">
@@ -12,29 +12,29 @@
 <article class="panel sub {{if eq .Status "held"}}is-held{{end}}">
   <header>
     <b>{{time .CreatedAt}}</b>
-    {{if eq .Status "held"}}<span class="tag amber">wstrzymane</span>{{end}}
+    {{if eq .Status "held"}}<span class="tag amber">{{t "held"}}</span>{{end}}
     <span class="muted">IP {{.IP}}</span>
     <div class="sub-actions">
       {{if eq .Status "held"}}
       <form method="post" action="/forms/{{$d.ID}}/submissions/{{.ID}}/release">
-        <input type="hidden" name="csrf" value="{{$csrf}}"><button class="btn small primary">Zatwierdź i wyślij</button>
+        <input type="hidden" name="csrf" value="{{$csrf}}"><button class="btn small primary">{{t "Approve and send"}}</button>
       </form>
       {{end}}
       <form method="post" action="/forms/{{$d.ID}}/submissions/{{.ID}}/delete">
-        <input type="hidden" name="csrf" value="{{$csrf}}"><input type="hidden" name="from" value="{{$st}}"><button class="danger-link">Usuń</button>
+        <input type="hidden" name="csrf" value="{{$csrf}}"><input type="hidden" name="from" value="{{$st}}"><button class="danger-link">{{t "Delete"}}</button>
       </form>
     </div>
   </header>
   {{with .Assessment}}
   <div class="assess">
-    <span class="assess-label">Ocena Jev</span>
-    {{if .Error}}<span class="tag">nie oceniono</span><span class="muted small">{{.Error}}</span>
+    <span class="assess-label">{{t "Content check"}}</span>
+    {{if .Error}}<span class="tag">{{t "not assessed"}}</span><span class="muted small">{{.Error}}</span>
     {{else}}
     <span class="tag">{{catLabel .Category}} · {{pct .CategoryConfidence}}</span>
-    <span class="tag {{riskClass .Spam}}">spam {{pct .Spam}}</span>
-    <span class="tag {{riskClass .Scam}}">oszustwo {{pct .Scam}}</span>
-    <span class="tag {{riskClass .Abusive}}">obraźliwe {{pct .Abusive}}</span>
-    <span class="tag">pilność {{.Urgency}}/5</span>
+    <span class="tag {{riskClass .Spam}}">{{tf "spam %s" (pct .Spam)}}</span>
+    <span class="tag {{riskClass .Scam}}">{{tf "scam %s" (pct .Scam)}}</span>
+    <span class="tag {{riskClass .Abusive}}">{{tf "abusive %s" (pct .Abusive)}}</span>
+    <span class="tag">{{tf "urgency %d/5" .Urgency}}</span>
     {{end}}
   </div>
   {{end}}
@@ -42,8 +42,8 @@
 </article>
 {{end}}
 </div>
-<nav class="pager">{{if .Data.Page}}<a class="btn" href="?status={{$st}}&amp;page={{add .Data.Page -1}}">← Nowsze</a>{{end}}{{if .Data.More}}<a class="btn" href="?status={{$st}}&amp;page={{add .Data.Page 1}}">Starsze →</a>{{end}}</nav>
+<nav class="pager">{{if .Data.Page}}<a class="btn" href="?status={{$st}}&amp;page={{add .Data.Page -1}}">{{t "← Newer"}}</a>{{end}}{{if .Data.More}}<a class="btn" href="?status={{$st}}&amp;page={{add .Data.Page 1}}">{{t "Older →"}}</a>{{end}}</nav>
 {{else}}
-<div class="empty"><h2>{{if eq $st "held"}}Nic nie czeka na zatwierdzenie{{else}}Brak zgłoszeń{{end}}</h2><p>{{if eq $st "held"}}Tu trafią zgłoszenia, które Jev uznał za podejrzane.{{else}}Gdy ktoś wyśle formularz, zobaczysz je tutaj.{{end}}</p></div>
+<div class="empty"><h2>{{if eq $st "held"}}{{t "Nothing is waiting for approval"}}{{else}}{{t "No submissions yet"}}{{end}}</h2><p>{{if eq $st "held"}}{{t "Submissions the content check finds suspicious end up here."}}{{else}}{{t "When someone sends the form, you will see it here."}}{{end}}</p></div>
 {{end}}
 {{end}}

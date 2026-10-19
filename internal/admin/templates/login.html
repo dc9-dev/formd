@@ -1,8 +1,8 @@
 {{define "content"}}
 <form method="post" action="/login" class="stack">
-  <label class="field">Login<input name="username" autocomplete="username" required maxlength="64" autofocus></label>
-  <label class="field">Hasło<input type="password" name="password" autocomplete="current-password" required maxlength="1024"></label>
-  <button class="btn primary wide">Zaloguj się</button>
+  <label class="field">{{t "Username"}}<input name="username" autocomplete="username" required maxlength="64" autofocus></label>
+  <label class="field">{{t "Password"}}<input type="password" name="password" autocomplete="current-password" required maxlength="1024"></label>
+  <button class="btn primary wide">{{t "Log in"}}</button>
 </form>
-<p class="hint center">Konta zakłada się z serwera:<br><code>formd user add &lt;login&gt;</code></p>
+<p class="hint center">{{th "Accounts are created on the server:<br><code>formd user add &lt;username&gt;</code>"}}</p>
 {{end}}

@@ -13,6 +13,8 @@ import (
 	"strings"
 	ttemplate "text/template"
 	"unicode/utf8"
+
+	"github.com/dc9-dev/formd/internal/i18n"
 )
 
 // What to do with a submission Jev flags as risky.
@@ -105,9 +107,9 @@ func NewDefinition(id string) Definition {
 		Title:   id,
 		Enabled: false,
 		Fields: []Field{
-			{Name: "name", Label: "Imię", Type: TypeText, Required: true, Max: 200},
-			{Name: "email", Label: "E-mail", Type: TypeEmail, Required: true, Max: 254},
-			{Name: "message", Label: "Wiadomość", Type: TypeTextarea, Required: true, Max: 5000},
+			{Name: "name", Label: i18n.T("Name"), Type: TypeText, Required: true, Max: 200},
+			{Name: "email", Label: i18n.T("Email"), Type: TypeEmail, Required: true, Max: 254},
+			{Name: "message", Label: i18n.T("Message"), Type: TypeTextarea, Required: true, Max: 5000},
 		},
 		Honeypot:               "website",
 		Challenge:              true,
@@ -119,11 +121,11 @@ func NewDefinition(id string) Definition {
 		MaxLinks:               2,
 		DedupeHours:            24,
 		RetentionDays:          365,
-		NotifySubject:          "Nowe zgłoszenie z formularza {{.name}}",
+		NotifySubject:          i18n.T("New submission from {{.name}}"),
 		ReplyToField:           "email",
 		ConfirmToField:         "email",
-		ConfirmSubject:         "Dziękujemy za wiadomość",
-		ConfirmText:            "Dzień dobry,\n\notrzymaliśmy Twoją wiadomość i odpowiemy najszybciej, jak to możliwe.\n",
+		ConfirmSubject:         i18n.T("Thanks for your message"),
+		ConfirmText:            i18n.T("Hello,\n\nwe have received your message and will reply as soon as we can.\n"),
 		ConfirmPerRecipientDay: 2,
 		JevAction:              JevHold,
 		JevThreshold:           70,
@@ -146,15 +148,15 @@ type Form struct {
 // admin panel can show them at once.
 func Compile(d Definition) (*Form, error) {
 	var errs []error
-	add := func(format string, a ...any) { errs = append(errs, fmt.Errorf(format, a...)) }
+	add := func(format string, a ...any) { errs = append(errs, i18n.Errorf(format, a...)) }
 
 	d.ID = strings.TrimSpace(d.ID)
 	if !idRe.MatchString(d.ID) {
-		add("identyfikator: dozwolone małe litery, cyfry, '-' i '_' (max 64 znaki)")
+		add("ID: only lowercase letters, digits, '-' and '_' are allowed (max 64 characters)")
 	}
 	d.Title = strings.TrimSpace(d.Title)
 	if utf8.RuneCountInString(d.Title) > 200 {
-		add("nazwa: max 200 znaków")
+		add("name: max 200 characters")
 	}
 
 	f := &Form{origins: map[string]bool{}, fields: map[string]*Field{}}
@@ -168,7 +170,7 @@ func Compile(d Definition) (*Form, error) {
 		}
 		n, err := normalizeOrigin(o)
 		if err != nil {
-			add("dozwolony origin %q: %v", o, err)
+			add("allowed origin %q: %v", o, err)
 			continue
 		}
 		if !f.origins[n] {
@@ -178,10 +180,10 @@ func Compile(d Definition) (*Form, error) {
 	}
 	d.AllowedOrigins = origins
 	if len(origins) == 0 {
-		add("podaj co najmniej jeden dozwolony origin (np. https://example.com)")
+		add("enter at least one allowed origin (e.g. https://example.com)")
 	}
 	if len(origins) > maxOrigins {
-		add("max %d originów", maxOrigins)
+		add("max %d origins", maxOrigins)
 	}
 
 	// Fields.
@@ -196,11 +198,11 @@ func Compile(d Definition) (*Form, error) {
 			fl.Label = fl.Name
 		}
 		if !fieldRe.MatchString(fl.Name) {
-			add("pole %q: nazwa musi zaczynać się literą; dozwolone litery, cyfry, '-' i '_'", fl.Name)
+			add("field %q: the name must start with a letter; letters, digits, '-' and '_' are allowed", fl.Name)
 			continue
 		}
 		if f.fields[fl.Name] != nil {
-			add("pole %q występuje dwa razy", fl.Name)
+			add("field %q appears twice", fl.Name)
 			continue
 		}
 		switch fl.Type {
@@ -208,7 +210,7 @@ func Compile(d Definition) (*Form, error) {
 		case "":
 			fl.Type = TypeText
 		default:
-			add("pole %q: nieznany typ %q", fl.Name, fl.Type)
+			add("field %q: unknown type %q", fl.Name, fl.Type)
 		}
 		if fl.Max <= 0 {
 			fl.Max = defaultMaxLen
@@ -217,7 +219,7 @@ func Compile(d Definition) (*Form, error) {
 			fl.Max = 254
 		}
 		if fl.Max > maxFieldLen {
-			add("pole %q: max długość to %d", fl.Name, maxFieldLen)
+			add("field %q: the maximum length is %d", fl.Name, maxFieldLen)
 		}
 		fields = append(fields, fl)
 		f.fields[fl.Name] = &fields[len(fields)-1]
@@ -228,35 +230,35 @@ func Compile(d Definition) (*Form, error) {
 		f.fields[d.Fields[i].Name] = &d.Fields[i]
 	}
 	if len(fields) == 0 {
-		add("formularz musi mieć co najmniej jedno pole")
+		add("the form needs at least one field")
 	}
 	if len(fields) > maxFields {
-		add("max %d pól", maxFields)
+		add("max %d fields", maxFields)
 	}
 
 	// Anti-abuse.
 	d.Honeypot = strings.TrimSpace(d.Honeypot)
 	if d.Honeypot != "" {
 		if !fieldRe.MatchString(d.Honeypot) {
-			add("honeypot: nieprawidłowa nazwa pola")
+			add("honeypot: invalid field name")
 		} else if f.fields[d.Honeypot] != nil {
-			add("honeypot %q nie może być jednocześnie zwykłym polem", d.Honeypot)
+			add("honeypot %q cannot also be a regular field", d.Honeypot)
 		}
 	}
 	if d.PowBits < 0 || d.PowBits > maxPowBits {
-		add("trudność proof-of-work: 0–%d bitów", maxPowBits)
+		add("proof-of-work difficulty: 0–%d bits", maxPowBits)
 	}
 	if d.MinSeconds < 0 || d.MinSeconds > 3600 {
-		add("minimalny czas wypełnienia: 0–3600 s")
+		add("minimum fill time: 0–3600 s")
 	}
 	if d.MinSeconds > 0 && !d.Challenge {
-		add("minimalny czas wypełnienia wymaga włączonego challenge (czas jest liczony po stronie serwera)")
+		add("the minimum fill time needs the challenge turned on (the time is measured on the server)")
 	}
 	if d.RatePerIP < 0 || d.RateWindowMin < 0 || (d.RatePerIP > 0 && d.RateWindowMin == 0) {
-		add("limit per IP: podaj liczbę i okno w minutach")
+		add("per-IP limit: enter a number and a window in minutes")
 	}
 	if d.HourlyCap < 0 || d.DedupeHours < 0 || d.RetentionDays < 0 || d.ConfirmPerRecipientDay < 0 {
-		add("limity nie mogą być ujemne")
+		add("limits cannot be negative")
 	}
 	if d.MaxLinks < -1 {
 		d.MaxLinks = -1
@@ -278,50 +280,50 @@ func Compile(d Definition) (*Form, error) {
 			continue
 		}
 		if _, err := ParseEmail(n); err != nil {
-			add("adres powiadomień %q: %v", n, err)
+			add("notification address %q: %v", n, i18n.T(err.Error()))
 			continue
 		}
 		notify = append(notify, n)
 	}
 	d.Notify = notify
 	if len(notify) > maxRecipients {
-		add("max %d adresów powiadomień", maxRecipients)
+		add("max %d notification addresses", maxRecipients)
 	}
 	if d.ReplyToField = strings.TrimSpace(d.ReplyToField); d.ReplyToField != "" {
 		if fl := f.fields[d.ReplyToField]; fl == nil || fl.Type != TypeEmail {
-			add("pole Reply-To musi wskazywać pole typu e-mail")
+			add("the Reply-To field must be an email field")
 		}
 	}
 	var err error
-	if f.notifySubject, err = parseText("temat powiadomienia", d.NotifySubject); err != nil {
+	if f.notifySubject, err = parseText(i18n.T("notification subject"), d.NotifySubject); err != nil {
 		errs = append(errs, err)
 	}
 
 	// Confirmation to the sender.
 	if d.ConfirmEnabled {
 		if fl := f.fields[strings.TrimSpace(d.ConfirmToField)]; fl == nil || fl.Type != TypeEmail {
-			add("potwierdzenie: pole odbiorcy musi wskazywać pole typu e-mail")
+			add("confirmation: the recipient field must be an email field")
 		}
 		if strings.TrimSpace(d.ConfirmSubject) == "" || strings.TrimSpace(d.ConfirmText) == "" {
-			add("potwierdzenie: temat i treść tekstowa są wymagane")
+			add("confirmation: the subject and the text body are required")
 		}
 		if d.ConfirmPerRecipientDay == 0 {
-			add("potwierdzenie: limit maili na adres dziennie musi być > 0 (ochrona przed mail-bombingiem)")
+			add("confirmation: the daily limit per address must be greater than 0 (protection against mail bombing)")
 		}
 	}
 	d.ConfirmToField = strings.TrimSpace(d.ConfirmToField)
-	if f.confirmSubject, err = parseText("temat potwierdzenia", d.ConfirmSubject); err != nil {
+	if f.confirmSubject, err = parseText(i18n.T("confirmation subject"), d.ConfirmSubject); err != nil {
 		errs = append(errs, err)
 	}
-	if f.confirmText, err = parseText("treść potwierdzenia", d.ConfirmText); err != nil {
+	if f.confirmText, err = parseText(i18n.T("confirmation text"), d.ConfirmText); err != nil {
 		errs = append(errs, err)
 	}
 	if len(d.ConfirmHTML) > maxTemplateLen {
-		add("treść HTML potwierdzenia: max %d znaków", maxTemplateLen)
+		add("confirmation HTML body: max %d characters", maxTemplateLen)
 	} else if strings.TrimSpace(d.ConfirmHTML) != "" {
 		t, err := htemplate.New("confirm_html").Option("missingkey=zero").Parse(d.ConfirmHTML)
 		if err != nil {
-			add("treść HTML potwierdzenia: %v", err)
+			add("confirmation HTML body: %v", err)
 		}
 		f.confirmHTML = t
 	}
@@ -329,29 +331,29 @@ func Compile(d Definition) (*Form, error) {
 	// Content assessment.
 	d.JevContext = strings.TrimSpace(d.JevContext)
 	if utf8.RuneCountInString(d.JevContext) > 300 {
-		add("opis strony dla Jev: max 300 znaków")
+		add("site description for content assessment: max 300 characters")
 	}
 	switch d.JevAction {
 	case JevTag, JevHold, JevDrop:
 	case "":
 		d.JevAction = JevHold
 	default:
-		add("Jev: nieznana akcja %q", d.JevAction)
+		add("content assessment: unknown action %q", d.JevAction)
 	}
 	if d.JevThreshold == 0 {
 		d.JevThreshold = 70
 	}
 	if d.JevThreshold < 1 || d.JevThreshold > 100 {
-		add("Jev: próg ryzyka musi być w zakresie 1–100%%")
+		add("content assessment: the risk threshold must be between 1 and 100%%")
 	}
 
-	for _, r := range []struct{ name, v string }{{"przekierowanie po sukcesie", d.RedirectSuccess}, {"przekierowanie po błędzie", d.RedirectError}} {
+	for _, r := range []struct{ name, v string }{{i18n.T("redirect after success"), d.RedirectSuccess}, {i18n.T("redirect after an error"), d.RedirectError}} {
 		if strings.TrimSpace(r.v) == "" {
 			continue
 		}
 		u, err := url.Parse(strings.TrimSpace(r.v))
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
-			add("%s: wymagany pełny adres http(s)://", r.name)
+			add("%s: a full http(s):// address is required", r.name)
 		}
 	}
 	d.RedirectSuccess = strings.TrimSpace(d.RedirectSuccess)
@@ -366,7 +368,7 @@ func Compile(d Definition) (*Form, error) {
 
 func parseText(name, src string) (*ttemplate.Template, error) {
 	if len(src) > maxTemplateLen {
-		return nil, fmt.Errorf("%s: max %d znaków", name, maxTemplateLen)
+		return nil, i18n.Errorf("%s: max %d characters", name, maxTemplateLen)
 	}
 	t, err := ttemplate.New(name).Option("missingkey=zero").Parse(src)
 	if err != nil {
@@ -381,26 +383,29 @@ func normalizeOrigin(o string) (string, error) {
 		return "", err
 	}
 	if u.Scheme != "https" && u.Scheme != "http" {
-		return "", errors.New("schemat musi być http lub https")
+		return "", errors.New(i18n.T("the scheme must be http or https"))
 	}
 	if u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
-		return "", errors.New("podaj sam origin, np. https://example.com")
+		return "", errors.New(i18n.T("enter the origin only, e.g. https://example.com"))
 	}
 	return strings.ToLower(u.Scheme + "://" + u.Host), nil
 }
 
+// ErrInvalidEmail is returned by ParseEmail; its text is an i18n key.
+var ErrInvalidEmail = errors.New("invalid email address")
+
 // ParseEmail accepts a bare address only (no display name, no header tricks).
 func ParseEmail(s string) (string, error) {
 	if len(s) > 254 || strings.ContainsAny(s, "\r\n\x00<>\",;") {
-		return "", errors.New("nieprawidłowy adres e-mail")
+		return "", ErrInvalidEmail
 	}
 	a, err := mail.ParseAddress(s)
 	if err != nil || a.Address != s || a.Name != "" {
-		return "", errors.New("nieprawidłowy adres e-mail")
+		return "", ErrInvalidEmail
 	}
 	at := strings.LastIndexByte(s, '@')
 	if at < 1 || !strings.Contains(s[at+1:], ".") {
-		return "", errors.New("nieprawidłowy adres e-mail")
+		return "", ErrInvalidEmail
 	}
 	return s, nil
 }
@@ -430,10 +435,10 @@ func (f *Form) RenderNotify(values map[string]string) (Rendered, error) {
 	}
 	subj = CleanHeader(subj, 200)
 	if subj == "" {
-		subj = CleanHeader("Nowe zgłoszenie: "+f.Def.Title, 200)
+		subj = CleanHeader(i18n.T("New submission: ")+f.Def.Title, 200)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Formularz: %s (%s)\n\n", f.Def.Title, f.Def.ID)
+	fmt.Fprintf(&b, i18n.T("Form: %s (%s)\n\n"), f.Def.Title, f.Def.ID)
 	for _, fl := range f.Def.Fields {
 		fmt.Fprintf(&b, "%s:\n%s\n\n", fl.Label, values[fl.Name])
 	}

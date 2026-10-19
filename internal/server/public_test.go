@@ -195,7 +195,7 @@ func TestSubmitRejections(t *testing.T) {
 	w := e.do("GET", "/f/contact/challenge", nil, nil)
 	var c struct{ Token string }
 	json.Unmarshal(w.Body.Bytes(), &c)
-	if w := e.do("POST", "/f/contact", valid(c.Token, "0"), nil); w.Code != 400 || !strings.Contains(w.Body.String(), "szybko") {
+	if w := e.do("POST", "/f/contact", valid(c.Token, "0"), nil); w.Code != 400 || !strings.Contains(w.Body.String(), "too quickly") {
 		t.Errorf("too fast: %d %s", w.Code, w.Body)
 	}
 
@@ -402,7 +402,7 @@ func TestJevTagMarksSubject(t *testing.T) {
 			notify = &it
 		}
 	}
-	if notify == nil || !strings.HasPrefix(notify.Subject, "[SPAM?] ") || !strings.Contains(notify.Text, "Ocena treści (Jev)") {
+	if notify == nil || !strings.HasPrefix(notify.Subject, "[SPAM?] ") || !strings.Contains(notify.Text, "Content assessment") {
 		t.Fatalf("notify not marked: %+v", notify)
 	}
 }
@@ -456,7 +456,7 @@ func TestJevBudgetAndCheapFiltersFirst(t *testing.T) {
 	if fj.calls != 0 {
 		t.Fatal("Jev called over budget")
 	}
-	if s := e.subs(); len(s) != 1 || s[0].Assessment == nil || !strings.Contains(s[0].Assessment.Error, "budżet") {
+	if s := e.subs(); len(s) != 1 || s[0].Assessment == nil || !strings.Contains(s[0].Assessment.Error, "budget") {
 		t.Fatalf("budget: %+v", s)
 	}
 }

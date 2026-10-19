@@ -24,6 +24,7 @@ import (
 	"github.com/dc9-dev/formd/internal/antispam"
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/i18n"
 	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/netutil"
 	"github.com/dc9-dev/formd/internal/store"
@@ -66,6 +67,19 @@ func New(cfg *config.Config, st *store.Store, reg *forms.Registry, log *slog.Log
 			return fmt.Sprintf("%.2f", v)
 		},
 		"catLabel": jev.CategoryLabel,
+		// Panel text: t for plain text, th for catalogue entries that contain
+		// markup (trusted: they come from the compiled-in catalogue, never from
+		// user input), tf/thf for formats; thf escapes its arguments.
+		"t":  i18n.T,
+		"tf": i18n.Sprintf,
+		"th": func(s string) template.HTML { return template.HTML(i18n.T(s)) },
+		"thf": func(format string, args ...any) template.HTML {
+			for i, v := range args {
+				args[i] = template.HTMLEscapeString(fmt.Sprint(v))
+			}
+			return template.HTML(i18n.Sprintf(format, args...))
+		},
+		"lang": func() string { return string(i18n.Default()) },
 		"riskClass": func(v float64) string {
 			switch {
 			case v >= 0.7:
@@ -78,11 +92,11 @@ func New(cfg *config.Config, st *store.Store, reg *forms.Registry, log *slog.Log
 		"jevAction": func(a string) string {
 			switch a {
 			case forms.JevTag:
-				return "oznacz"
+				return i18n.T("tag")
 			case forms.JevDrop:
-				return "odrzuć"
+				return i18n.T("drop")
 			}
-			return "wstrzymaj"
+			return i18n.T("hold")
 		},
 		"initial": func(s string) string {
 			for _, r := range s {
@@ -299,12 +313,12 @@ type view struct {
 }
 
 var flashes = map[string]string{
-	"saved":    "Zapisano zmiany.",
-	"created":  "Utworzono formularz. Uzupełnij konfigurację i włącz go.",
-	"deleted":  "Usunięto.",
-	"requeued": "Wiadomość wróciła do kolejki.",
-	"released": "Zgłoszenie zatwierdzone — maile trafiły do kolejki.",
-	"password": "Hasło zmienione. Zaloguj się ponownie.",
+	"saved":    "Changes saved.",
+	"created":  "Form created. Finish the configuration and turn it on.",
+	"deleted":  "Deleted.",
+	"requeued": "The message is back in the queue.",
+	"released": "Submission approved; its emails are in the queue.",
+	"password": "Password changed. Log in again.",
 }
 
 func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page string, v view) {
@@ -314,7 +328,9 @@ func (a *Admin) render(w http.ResponseWriter, r *http.Request, status int, page 
 		return
 	}
 	if v.Flash == "" {
-		v.Flash = flashes[r.URL.Query().Get("ok")]
+		if f := flashes[r.URL.Query().Get("ok")]; f != "" {
+			v.Flash = i18n.T(f)
+		}
 	}
 	switch p := r.URL.Path; {
 	case strings.HasPrefix(p, "/outbox"):

@@ -6,12 +6,16 @@
  * marked [data-formd-status] inside the form; otherwise a normal POST is made
  * (server redirects to the configured success/error page).
  *
- * Messages (defaults are Polish; override per form for other languages):
+ * Language: messages follow the page's lang attribute (the form's nearest
+ * [lang], usually <html lang>): Polish for "pl", English otherwise. The same
+ * language is sent to the server as ?lang= so its field errors match.
+ *
+ * Messages can be overridden per form:
  *   data-formd-sending="Sending…"
  *   data-formd-success="Thank you! Your message has been sent."
  *   data-formd-error="The form could not be sent."            (server rejected, no details)
  *   data-formd-network-error="Could not send the form. Try again."
- *   data-formd-server-errors="off"   hide the server's per-field messages (they are Polish)
+ *   data-formd-server-errors="off"   hide the server's per-field messages
  *                                    and show data-formd-error instead
  */
 (function () {
@@ -95,9 +99,20 @@
     el.value = value;
   }
 
+  var TEXT = {
+    en: { sending: 'Sending…', success: 'Thank you! Your message has been sent.',
+          error: 'The form could not be sent.', network: 'Could not send the form. Try again.' },
+    pl: { sending: 'Wysyłanie…', success: 'Dziękujemy! Wiadomość została wysłana.',
+          error: 'Nie udało się wysłać formularza.', network: 'Nie udało się wysłać formularza. Spróbuj ponownie.' }
+  };
+
   function setup(form) {
     var action = form.getAttribute('action');
     var state = null;
+    var holder = form.closest('[lang]');
+    var lang = /^pl\b/i.test(holder ? holder.getAttribute('lang') : '') ? 'pl' : 'en';
+    var text = TEXT[lang];
+    var post = action + (action.indexOf('?') < 0 ? '?' : '&') + 'lang=' + lang;
 
     function fetchChallenge() {
       state = fetch(action + '/challenge', { credentials: 'omit', headers: { Accept: 'application/json' } })
@@ -121,7 +136,7 @@
       ev.preventDefault();
       var btn = form.querySelector('[type="submit"]');
       if (btn) btn.disabled = true;
-      status(msg('sending', 'Wysyłanie…'), true);
+      status(msg('sending', text.sending), true);
       try {
         var c = await state.catch(function () { fetchChallenge(); return state; });
         if (Date.now() - c.at > 90 * 60 * 1000) { fetchChallenge(); c = await state; }
@@ -132,10 +147,11 @@
         setField(form, '_pow', pow);
 
         if (form.getAttribute('data-formd') !== 'ajax') {
+          form.setAttribute('action', post);
           HTMLFormElement.prototype.submit.call(form);
           return;
         }
-        var res = await fetch(action, {
+        var res = await fetch(post, {
           method: 'POST', credentials: 'omit',
           headers: { Accept: 'application/json' },
           body: new URLSearchParams(new FormData(form))
@@ -143,15 +159,15 @@
         var data = await res.json().catch(function () { return {}; });
         if (data.ok) {
           form.reset();
-          status(msg('success', 'Dziękujemy! Wiadomość została wysłana.'), true);
+          status(msg('success', text.success), true);
         } else {
           var errs = data.errors || {};
           var details = form.getAttribute('data-formd-server-errors') === 'off' ? '' :
             Object.keys(errs).map(function (k) { return (k === '_form' ? '' : k + ': ') + errs[k]; }).join('\n');
-          status(details || msg('error', 'Nie udało się wysłać formularza.'), false);
+          status(details || msg('error', text.error), false);
         }
       } catch (e) {
-        status(msg('network-error', 'Nie udało się wysłać formularza. Spróbuj ponownie.'), false);
+        status(msg('network-error', text.network), false);
       } finally {
         fetchChallenge(); // tokens are single-use
         if (btn) btn.disabled = false;

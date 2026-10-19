@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/i18n"
 	"github.com/dc9-dev/formd/internal/store"
 )
 
 // ---- login ----
 
 func (a *Admin) loginPage(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, http.StatusOK, "login", view{Title: "Logowanie"})
+	a.render(w, r, http.StatusOK, "login", view{Title: i18n.T("Sign in")})
 }
 
 func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -30,16 +31,16 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	ip := a.clientIP(r)
 	now := time.Now()
 	fail := func(msg string) {
-		a.render(w, r, http.StatusUnauthorized, "login", view{Title: "Logowanie", Error: msg})
+		a.render(w, r, http.StatusUnauthorized, "login", view{Title: i18n.T("Sign in"), Error: msg})
 	}
 	if len(user) > 64 {
-		fail("Nieprawidłowy login lub hasło.")
+		fail(i18n.T("Wrong username or password."))
 		return
 	}
 	// Throttle per IP and per username before doing any expensive work.
 	if !a.limiter.Allow("ip|"+ip, 10, 15*time.Minute, now) || !a.limiter.Allow("user|"+strings.ToLower(user), 5, 15*time.Minute, now) {
 		a.audit(r, user, "login_throttled", "")
-		fail("Zbyt wiele prób logowania. Spróbuj za kilkanaście minut.")
+		fail(i18n.T("Too many login attempts. Try again in a quarter of an hour."))
 		return
 	}
 	u, err := a.Store.UserByName(r.Context(), user)
@@ -52,7 +53,7 @@ func (a *Admin) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	if !VerifyPassword(hash, pass) || err != nil {
 		a.audit(r, user, "login_failed", "")
-		fail("Nieprawidłowy login lub hasło.")
+		fail(i18n.T("Wrong username or password."))
 		return
 	}
 	token := randToken()
@@ -123,7 +124,7 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request, s *store.Sessi
 		}
 		list = append(list, r)
 	}
-	a.render(w, r, http.StatusOK, "dashboard", view{Title: "Formularze", Session: s, Data: map[string]any{
+	a.render(w, r, http.StatusOK, "dashboard", view{Title: i18n.T("Forms"), Session: s, Data: map[string]any{
 		"Forms": list, "Failed": len(failed), "Mailer": a.Cfg.Mailer, "Total": total, "Live": live, "Held": heldTotal,
 		"JevReady": a.Cfg.Jev.Enabled(), "JevSelfHosted": a.Cfg.Jev.SelfHosted(), "JevSpent": jevSpent, "JevBudget": a.Cfg.Jev.DailyBudgetUSD,
 	}})
@@ -132,7 +133,7 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request, s *store.Sessi
 // ---- create ----
 
 func (a *Admin) newFormPage(w http.ResponseWriter, r *http.Request, s *store.Session) {
-	a.render(w, r, http.StatusOK, "new", view{Title: "Nowy formularz", Session: s, Data: map[string]string{}})
+	a.render(w, r, http.StatusOK, "new", view{Title: i18n.T("New form"), Session: s, Data: map[string]string{}})
 }
 
 func (a *Admin) newFormSubmit(w http.ResponseWriter, r *http.Request, s *store.Session) {
@@ -147,13 +148,13 @@ func (a *Admin) newFormSubmit(w http.ResponseWriter, r *http.Request, s *store.S
 	}
 	d.AllowedOrigins = []string{in["origin"]}
 	if _, err := forms.Compile(d); err != nil {
-		a.render(w, r, http.StatusBadRequest, "new", view{Title: "Nowy formularz", Session: s, Errors: splitErr(err), Data: in})
+		a.render(w, r, http.StatusBadRequest, "new", view{Title: i18n.T("New form"), Session: s, Errors: splitErr(err), Data: in})
 		return
 	}
 	f, _ := forms.Compile(d)
 	if err := a.Store.CreateForm(r.Context(), f.Def); err != nil {
 		if errors.Is(err, store.ErrExists) {
-			a.render(w, r, http.StatusConflict, "new", view{Title: "Nowy formularz", Session: s, Errors: []string{"Formularz o tym identyfikatorze już istnieje."}, Data: in})
+			a.render(w, r, http.StatusConflict, "new", view{Title: i18n.T("New form"), Session: s, Errors: []string{i18n.T("A form with this ID already exists.")}, Data: in})
 			return
 		}
 		a.serverError(w, err)
@@ -248,7 +249,7 @@ func parseDefinition(v url.Values, id string) (forms.Definition, error) {
 		}
 		n, err := strconv.Atoi(s)
 		if err != nil {
-			errs = append(errs, label+": wymagana liczba całkowita")
+			errs = append(errs, i18n.Sprintf("%s: a whole number is required", i18n.T(label)))
 		}
 		return n
 	}
@@ -259,15 +260,15 @@ func parseDefinition(v url.Values, id string) (forms.Definition, error) {
 		AllowedOrigins:         splitLines(v.Get("allowed_origins")),
 		Honeypot:               v.Get("honeypot"),
 		Challenge:              v.Get("challenge") == "1",
-		PowBits:                num("pow_bits", "trudność PoW"),
-		MinSeconds:             num("min_seconds", "minimalny czas"),
-		RatePerIP:              num("rate_per_ip", "limit per IP"),
-		RateWindowMin:          num("rate_window_min", "okno limitu"),
-		HourlyCap:              num("hourly_cap", "limit godzinowy"),
-		MaxLinks:               num("max_links", "max linków"),
+		PowBits:                num("pow_bits", "PoW difficulty"),
+		MinSeconds:             num("min_seconds", "Min. fill time"),
+		RatePerIP:              num("rate_per_ip", "Submissions per IP"),
+		RateWindowMin:          num("rate_window_min", "Limit window"),
+		HourlyCap:              num("hourly_cap", "Max per hour"),
+		MaxLinks:               num("max_links", "Max links"),
 		BlockedWords:           splitLines(v.Get("blocked_words")),
-		DedupeHours:            num("dedupe_hours", "duplikaty"),
-		RetentionDays:          num("retention_days", "retencja"),
+		DedupeHours:            num("dedupe_hours", "Duplicates"),
+		RetentionDays:          num("retention_days", "Retention"),
 		Notify:                 splitLines(v.Get("notify")),
 		NotifySubject:          v.Get("notify_subject"),
 		ReplyToField:           v.Get("reply_to_field"),
@@ -276,11 +277,11 @@ func parseDefinition(v url.Values, id string) (forms.Definition, error) {
 		ConfirmSubject:         v.Get("confirm_subject"),
 		ConfirmText:            strings.ReplaceAll(v.Get("confirm_text"), "\r\n", "\n"),
 		ConfirmHTML:            strings.ReplaceAll(v.Get("confirm_html"), "\r\n", "\n"),
-		ConfirmPerRecipientDay: num("confirm_per_recipient_day", "limit potwierdzeń"),
+		ConfirmPerRecipientDay: num("confirm_per_recipient_day", "Limit per address / 24 h"),
 		JevEnabled:             v.Get("jev_enabled") == "1",
 		JevContext:             v.Get("jev_context"),
 		JevAction:              v.Get("jev_action"),
-		JevThreshold:           num("jev_threshold", "próg Jev"),
+		JevThreshold:           num("jev_threshold", "Risk threshold"),
 		JevHoldOnError:         v.Get("jev_hold_on_error") == "1",
 		RedirectSuccess:        v.Get("redirect_success"),
 		RedirectError:          v.Get("redirect_error"),
@@ -290,7 +291,7 @@ func parseDefinition(v url.Values, id string) (forms.Definition, error) {
 	}
 	names, labels, types, req, maxes := v["field_name"], v["field_label"], v["field_type"], v["field_required"], v["field_max"]
 	if len(names) > 60 {
-		errs = append(errs, "zbyt wiele pól")
+		errs = append(errs, i18n.T("too many fields"))
 		names = names[:60]
 	}
 	at := func(s []string, i int) string {
@@ -302,7 +303,7 @@ func parseDefinition(v url.Values, id string) (forms.Definition, error) {
 	for i, n := range names {
 		max, err := strconv.Atoi(strings.TrimSpace(at(maxes, i)))
 		if err != nil && strings.TrimSpace(at(maxes, i)) != "" {
-			errs = append(errs, "pole "+n+": max długość musi być liczbą")
+			errs = append(errs, i18n.Sprintf("field %s: the maximum length must be a number", n))
 		}
 		d.Fields = append(d.Fields, forms.Field{
 			Name: n, Label: at(labels, i), Type: at(types, i), Required: at(req, i) == "1", Max: max,
@@ -338,7 +339,7 @@ func (a *Admin) deletePage(w http.ResponseWriter, r *http.Request, s *store.Sess
 	if !ok {
 		return
 	}
-	a.render(w, r, http.StatusOK, "delete", view{Title: "Usuń formularz", Session: s, Data: d})
+	a.render(w, r, http.StatusOK, "delete", view{Title: i18n.T("Delete form"), Session: s, Data: d})
 }
 
 func (a *Admin) deleteSubmit(w http.ResponseWriter, r *http.Request, s *store.Session) {
@@ -347,7 +348,7 @@ func (a *Admin) deleteSubmit(w http.ResponseWriter, r *http.Request, s *store.Se
 		return
 	}
 	if r.PostForm.Get("confirm") != d.ID {
-		a.render(w, r, http.StatusBadRequest, "delete", view{Title: "Usuń formularz", Session: s, Data: d, Error: "Wpisz identyfikator formularza, aby potwierdzić."})
+		a.render(w, r, http.StatusBadRequest, "delete", view{Title: i18n.T("Delete form"), Session: s, Data: d, Error: i18n.T("Type the form ID to confirm.")})
 		return
 	}
 	if err := a.Store.DeleteForm(r.Context(), d.ID); err != nil {
@@ -385,13 +386,13 @@ func (a *Admin) snippet(w http.ResponseWriter, r *http.Request, s *store.Session
 		b.WriteString("  </label>\n")
 	}
 	if d.Honeypot != "" {
-		fmt.Fprintf(&b, "  <!-- pułapka na boty: ukryj to pole CSS-em, nie przez type=hidden -->\n  <div style=\"position:absolute;left:-10000px\" aria-hidden=\"true\">\n    <input type=\"text\" name=\"%s\" tabindex=\"-1\" autocomplete=\"off\">\n  </div>\n", d.Honeypot)
+		fmt.Fprintf(&b, "  <!-- "+i18n.T("bot trap: hide this field with CSS, not with type=hidden")+" -->\n  <div style=\"position:absolute;left:-10000px\" aria-hidden=\"true\">\n    <input type=\"text\" name=\"%s\" tabindex=\"-1\" autocomplete=\"off\">\n  </div>\n", d.Honeypot)
 	}
-	b.WriteString("  <button type=\"submit\">Wyślij</button>\n  <p data-formd-status role=\"status\"></p>\n</form>\n")
+	b.WriteString("  <button type=\"submit\">" + i18n.T("Send message") + "</button>\n  <p data-formd-status role=\"status\"></p>\n</form>\n")
 	if d.Challenge {
 		b.WriteString("<script src=\"/f/formd.js\" defer></script>\n")
 	}
-	a.render(w, r, http.StatusOK, "snippet", view{Title: "Kod HTML: " + d.Title, Session: s, Data: map[string]any{"Def": d, "HTML": b.String()}})
+	a.render(w, r, http.StatusOK, "snippet", view{Title: i18n.T("HTML code") + ": " + d.Title, Session: s, Data: map[string]any{"Def": d, "HTML": b.String()}})
 }
 
 // ---- submissions ----
@@ -423,7 +424,7 @@ func (a *Admin) submissions(w http.ResponseWriter, r *http.Request, s *store.Ses
 	if more {
 		subs = subs[:pageSize]
 	}
-	a.render(w, r, http.StatusOK, "submissions", view{Title: "Zgłoszenia: " + d.Title, Session: s, Data: map[string]any{
+	a.render(w, r, http.StatusOK, "submissions", view{Title: i18n.T("Submissions") + ": " + d.Title, Session: s, Data: map[string]any{
 		"Def": d, "Subs": subs, "Page": page, "More": more, "Status": status, "Held": held[d.ID],
 	}})
 }
@@ -517,7 +518,7 @@ func (a *Admin) outbox(w http.ResponseWriter, r *http.Request, s *store.Session)
 		a.serverError(w, err)
 		return
 	}
-	a.render(w, r, http.StatusOK, "outbox", view{Title: "Kolejka maili", Session: s, Data: map[string]any{"Items": items, "Status": status}})
+	a.render(w, r, http.StatusOK, "outbox", view{Title: i18n.T("Mail queue"), Session: s, Data: map[string]any{"Items": items, "Status": status}})
 }
 
 func (a *Admin) retry(w http.ResponseWriter, r *http.Request, s *store.Session) {
@@ -542,22 +543,22 @@ func (a *Admin) auditPage(w http.ResponseWriter, r *http.Request, s *store.Sessi
 		a.serverError(w, err)
 		return
 	}
-	a.render(w, r, http.StatusOK, "audit", view{Title: "Dziennik zdarzeń", Session: s, Data: entries})
+	a.render(w, r, http.StatusOK, "audit", view{Title: i18n.T("Audit log"), Session: s, Data: entries})
 }
 
 // ---- account ----
 
 func (a *Admin) accountPage(w http.ResponseWriter, r *http.Request, s *store.Session) {
-	a.render(w, r, http.StatusOK, "account", view{Title: "Konto", Session: s})
+	a.render(w, r, http.StatusOK, "account", view{Title: i18n.T("Account"), Session: s})
 }
 
 func (a *Admin) accountSubmit(w http.ResponseWriter, r *http.Request, s *store.Session) {
 	cur, n1, n2 := r.PostForm.Get("current"), r.PostForm.Get("new"), r.PostForm.Get("confirm")
 	fail := func(msg string) {
-		a.render(w, r, http.StatusBadRequest, "account", view{Title: "Konto", Session: s, Error: msg})
+		a.render(w, r, http.StatusBadRequest, "account", view{Title: i18n.T("Account"), Session: s, Error: msg})
 	}
 	if !a.limiter.Allow("pw|"+s.Username, 5, 15*time.Minute, time.Now()) {
-		fail("Zbyt wiele prób. Spróbuj później.")
+		fail(i18n.T("Too many attempts. Try again later."))
 		return
 	}
 	u, err := a.Store.UserByName(r.Context(), s.Username)
@@ -567,11 +568,11 @@ func (a *Admin) accountSubmit(w http.ResponseWriter, r *http.Request, s *store.S
 	}
 	if !VerifyPassword(u.PasswordHash, cur) {
 		a.audit(r, s.Username, "password_change_failed", "")
-		fail("Obecne hasło jest nieprawidłowe.")
+		fail(i18n.T("The current password is wrong."))
 		return
 	}
 	if n1 != n2 {
-		fail("Nowe hasła nie są identyczne.")
+		fail(i18n.T("The new passwords do not match."))
 		return
 	}
 	if err := CheckPasswordPolicy(n1); err != nil {

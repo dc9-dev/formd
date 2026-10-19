@@ -1,16 +1,16 @@
-{{define "actions"}}<a class="btn primary" href="/forms/new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nowy formularz</a>{{end}}
+{{define "actions"}}<a class="btn primary" href="/forms/new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>{{t "New form"}}</a>{{end}}
 {{define "content"}}
 {{with .Data}}
-<section class="summary" aria-label="Podsumowanie">
-  <div class="stat"><b>{{.Total}}</b><span>zgłoszeń w bazie</span></div>
-  <div class="stat"><b>{{.Live}}<span class="stat-of"> / {{len .Forms}}</span></b><span>aktywnych formularzy</span></div>
-  {{if .Held}}<div class="stat warn"><b>{{.Held}}</b><span>czeka na zatwierdzenie</span></div>{{end}}
-  <div class="stat {{if .Failed}}alert{{end}}"><b>{{.Failed}}</b><span>{{if .Failed}}<a href="/outbox?status=failed">nieudanych maili</a>{{else}}nieudanych maili{{end}}</span><small>wysyłka: {{.Mailer}}</small></div>
-  {{if and .JevReady (not .JevSelfHosted)}}<div class="stat"><b>${{usd .JevSpent}}</b><span>Jev dzisiaj</span><small>budżet ${{usd .JevBudget}}</small></div>{{end}}
+<section class="summary" aria-label="{{t "Summary"}}">
+  <div class="stat"><b>{{.Total}}</b><span>{{t "submissions stored"}}</span></div>
+  <div class="stat"><b>{{.Live}}<span class="stat-of"> / {{len .Forms}}</span></b><span>{{t "active forms"}}</span></div>
+  {{if .Held}}<div class="stat warn"><b>{{.Held}}</b><span>{{t "waiting for approval"}}</span></div>{{end}}
+  <div class="stat {{if .Failed}}alert{{end}}"><b>{{.Failed}}</b><span>{{if .Failed}}<a href="/outbox?status=failed">{{t "failed emails"}}</a>{{else}}{{t "failed emails"}}{{end}}</span><small>{{tf "mailer: %s" .Mailer}}</small></div>
+  {{if and .JevReady (not .JevSelfHosted)}}<div class="stat"><b>${{usd .JevSpent}}</b><span>{{t "Jev today"}}</span><small>{{tf "budget $%s" (usd .JevBudget)}}</small></div>{{end}}
 </section>
 
 {{if .Forms}}
-<ul class="form-list" aria-label="Formularze">
+<ul class="form-list" aria-label="{{t "Forms"}}">
 {{range .Forms}}
   <li class="form-row">
     <div class="fr-name">
@@ -18,18 +18,18 @@
       <span class="muted"><code>/f/{{.Def.ID}}</code></span>
     </div>
     <div class="fr-tags">
-      {{if .Live}}<span class="tag green">aktywny</span>{{else}}<span class="tag">wyłączony</span>{{end}}
-      {{if .Def.Challenge}}<span class="tag">PoW {{.Def.PowBits}} bit</span>{{else}}<span class="tag amber">bez challenge</span>{{end}}
-      {{if .Def.RatePerIP}}<span class="tag">{{.Def.RatePerIP}} na {{.Def.RateWindowMin}} min</span>{{end}}
-      {{if .Def.JevEnabled}}<span class="tag blue">Jev: {{jevAction .Def.JevAction}}</span>{{end}}
+      {{if .Live}}<span class="tag green">{{t "active"}}</span>{{else}}<span class="tag">{{t "disabled"}}</span>{{end}}
+      {{if .Def.Challenge}}<span class="tag">PoW {{.Def.PowBits}} bit</span>{{else}}<span class="tag amber">{{t "no challenge"}}</span>{{end}}
+      {{if .Def.RatePerIP}}<span class="tag">{{tf "%d per %d min" .Def.RatePerIP .Def.RateWindowMin}}</span>{{end}}
+      {{if .Def.JevEnabled}}<span class="tag blue">{{tf "check: %s" (jevAction .Def.JevAction)}}</span>{{end}}
     </div>
     <div class="fr-count">
-      <a href="/forms/{{.Def.ID}}/submissions"><b>{{.Count}}</b>zgłoszeń</a>
-      {{if .Held}}<a class="held-link" href="/forms/{{.Def.ID}}/submissions?status=held">{{.Held}} do zatwierdzenia</a>{{end}}
+      <a href="/forms/{{.Def.ID}}/submissions"><b>{{.Count}}</b>{{t "submissions"}}</a>
+      {{if .Held}}<a class="held-link" href="/forms/{{.Def.ID}}/submissions?status=held">{{tf "%d to approve" .Held}}</a>{{end}}
     </div>
     <div class="fr-actions">
-      <a class="btn small" href="/forms/{{.Def.ID}}">Ustawienia</a>
-      <a class="btn small" href="/forms/{{.Def.ID}}/snippet">Kod HTML</a>
+      <a class="btn small" href="/forms/{{.Def.ID}}">{{t "Settings"}}</a>
+      <a class="btn small" href="/forms/{{.Def.ID}}/snippet">{{t "HTML code"}}</a>
     </div>
   </li>
 {{end}}
@@ -37,9 +37,9 @@
 {{else}}
 <div class="empty">
   <img src="/static/formd-icon-128.png" alt="" width="72" height="72">
-  <h2>Nie masz jeszcze formularzy</h2>
-  <p>Utwórz pierwszy. Dostanie bezpieczne ustawienia domyślne: challenge z proof-of-work, limity i honeypot.</p>
-  <a class="btn primary" href="/forms/new">Nowy formularz</a>
+  <h2>{{t "You have no forms yet"}}</h2>
+  <p>{{t "Create your first one. It starts with safe defaults: a proof-of-work challenge, limits and a honeypot."}}</p>
+  <a class="btn primary" href="/forms/new">{{t "New form"}}</a>
 </div>
 {{end}}
 {{end}}

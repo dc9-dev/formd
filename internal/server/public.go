@@ -18,6 +18,7 @@ import (
 	"github.com/dc9-dev/formd/internal/antispam"
 	"github.com/dc9-dev/formd/internal/config"
 	"github.com/dc9-dev/formd/internal/forms"
+	"github.com/dc9-dev/formd/internal/i18n"
 	"github.com/dc9-dev/formd/internal/jev"
 	"github.com/dc9-dev/formd/internal/netutil"
 	"github.com/dc9-dev/formd/internal/store"
@@ -168,13 +169,14 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	now := p.Now()
 	ip := netutil.ClientIP(r, p.Cfg.TrustedProxies).String()
+	lang := visitorLang(r)
 	wantJSON := strings.Contains(r.Header.Get("Accept"), "application/json") ||
 		strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")
 
 	f := p.activeForm(r)
 	if f == nil {
 		p.reject(r, r.PathValue("id"), ip, "unknown_form")
-		p.fail(w, r, nil, wantJSON, http.StatusNotFound, map[string]string{"_form": "nie znaleziono formularza"})
+		p.fail(w, r, nil, wantJSON, http.StatusNotFound, map[string]string{"_form": i18n.In(lang, "form not found")})
 		return
 	}
 	id := f.Def.ID
@@ -182,7 +184,7 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 	origin := requestOrigin(r)
 	if !f.OriginAllowed(origin) {
 		p.reject(r, id, ip, "origin")
-		p.fail(w, r, nil, wantJSON, http.StatusForbidden, map[string]string{"_form": "niedozwolone źródło"})
+		p.fail(w, r, nil, wantJSON, http.StatusForbidden, map[string]string{"_form": i18n.In(lang, "origin not allowed")})
 		return
 	}
 	if o := r.Header.Get("Origin"); o != "" {
@@ -193,7 +195,7 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 		!p.Limiter.Allow("f|"+id+"|"+ip, f.Def.RatePerIP, time.Duration(f.Def.RateWindowMin)*time.Minute, now) {
 		p.reject(r, id, ip, "rate_limit")
 		w.Header().Set("Retry-After", "600")
-		p.fail(w, r, f, wantJSON, http.StatusTooManyRequests, map[string]string{"_form": "zbyt wiele zgłoszeń, spróbuj później"})
+		p.fail(w, r, f, wantJSON, http.StatusTooManyRequests, map[string]string{"_form": i18n.In(lang, "too many submissions, try again later")})
 		return
 	}
 
@@ -208,11 +210,11 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusUnsupportedMediaType
 		}
 		p.reject(r, id, ip, "parse")
-		p.fail(w, r, f, wantJSON, status, map[string]string{"_form": "nieprawidłowe żądanie"})
+		p.fail(w, r, f, wantJSON, status, map[string]string{"_form": i18n.In(lang, "invalid request")})
 		return
 	}
 
-	res := f.Validate(vals)
+	res := f.Validate(vals, lang)
 	if !res.OK() {
 		p.fail(w, r, f, wantJSON, http.StatusBadRequest, res.Errors)
 		return
@@ -224,9 +226,9 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 		v, err := p.Challenger.Verify(res.Challenge, res.Pow, id, f.Def.PowBits, time.Duration(f.Def.MinSeconds)*time.Second, now)
 		if err != nil {
 			p.reject(r, id, ip, "challenge: "+err.Error())
-			msg := "weryfikacja nie powiodła się, odśwież stronę i spróbuj ponownie"
+			msg := i18n.In(lang, "verification failed, reload the page and try again")
 			if errors.Is(err, antispam.ErrChallengeTooNew) {
-				msg = "formularz wysłano zbyt szybko, spróbuj ponownie za chwilę"
+				msg = i18n.In(lang, "the form was sent too quickly, try again in a moment")
 			}
 			p.fail(w, r, f, wantJSON, http.StatusBadRequest, map[string]string{"_form": msg})
 			return
@@ -258,7 +260,7 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 		}
 		if n >= f.Def.HourlyCap {
 			p.reject(r, id, ip, "form_hourly_cap")
-			p.fail(w, r, f, wantJSON, http.StatusTooManyRequests, map[string]string{"_form": "formularz jest chwilowo przeciążony, spróbuj później"})
+			p.fail(w, r, f, wantJSON, http.StatusTooManyRequests, map[string]string{"_form": i18n.In(lang, "the form is busy right now, try again later")})
 			return
 		}
 	}
@@ -309,7 +311,7 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 	if err := p.Store.SaveSubmission(ctx, sub, mails, nonce, nonceExp); err != nil {
 		if errors.Is(err, store.ErrReplay) {
 			p.reject(r, id, ip, "challenge replay")
-			p.fail(w, r, f, wantJSON, http.StatusBadRequest, map[string]string{"_form": "weryfikacja nie powiodła się, odśwież stronę i spróbuj ponownie"})
+			p.fail(w, r, f, wantJSON, http.StatusBadRequest, map[string]string{"_form": i18n.In(lang, "verification failed, reload the page and try again")})
 			return
 		}
 		p.internal(w, r, f, wantJSON, err)
@@ -326,15 +328,15 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 // problems are reported in Assessment.Error and the form's policy decides.
 func (p *Public) assess(ctx context.Context, f *forms.Form, values map[string]string, now time.Time) jev.Assessment {
 	if p.Jev == nil {
-		return jev.Assessment{Error: "ocena treści nie jest skonfigurowana (brak OPENROUTER_API_KEY albo JEV_PROVIDER=basal)"}
+		return jev.Assessment{Error: i18n.T("content assessment is not configured (set OPENROUTER_API_KEY or JEV_PROVIDER=basal)")}
 	}
 	spent, err := p.Store.JevSpent(ctx, now)
 	if err != nil {
-		return jev.Assessment{Error: "nie udało się odczytać budżetu Jev"}
+		return jev.Assessment{Error: i18n.T("could not read the content assessment budget")}
 	}
 	if spent >= p.Cfg.Jev.DailyBudgetUSD {
 		p.Log.Warn("jev daily budget exhausted", "spent_usd", spent, "budget_usd", p.Cfg.Jev.DailyBudgetUSD)
-		return jev.Assessment{Error: "dzienny budżet Jev wyczerpany"}
+		return jev.Assessment{Error: i18n.T("the daily content assessment budget is used up")}
 	}
 	var fields []jev.Field
 	for _, fl := range f.Def.Fields {
@@ -362,7 +364,7 @@ func (p *Public) buildMails(ctx context.Context, f *forms.Form, values map[strin
 			return nil, err
 		}
 		if a != nil {
-			n.Text += "---\nOcena treści (Jev): " + a.Summary() + "\n"
+			n.Text += "---\n" + i18n.T("Content assessment: ") + a.Summary() + "\n"
 			if a.Flagged {
 				n.Subject = "[SPAM?] " + n.Subject
 			}
@@ -398,7 +400,7 @@ func (p *Public) buildMails(ctx context.Context, f *forms.Form, values map[strin
 
 func (p *Public) internal(w http.ResponseWriter, r *http.Request, f *forms.Form, wantJSON bool, err error) {
 	p.Log.Error("submission failed", "err", err)
-	p.fail(w, r, f, wantJSON, http.StatusInternalServerError, map[string]string{"_form": "błąd serwera, spróbuj później"})
+	p.fail(w, r, f, wantJSON, http.StatusInternalServerError, map[string]string{"_form": i18n.In(visitorLang(r), "server error, try again later")})
 }
 
 func (p *Public) succeed(w http.ResponseWriter, r *http.Request, f *forms.Form, wantJSON bool, id string) {
@@ -410,7 +412,8 @@ func (p *Public) succeed(w http.ResponseWriter, r *http.Request, f *forms.Form, 
 		http.Redirect(w, r, f.Def.RedirectSuccess, http.StatusSeeOther)
 		return
 	}
-	renderPage(w, http.StatusOK, "Dziękujemy", "Wiadomość została wysłana.", nil)
+	lang := visitorLang(r)
+	renderPage(w, lang, http.StatusOK, i18n.In(lang, "Thank you"), i18n.In(lang, "Your message has been sent."), nil)
 }
 
 func (p *Public) fail(w http.ResponseWriter, r *http.Request, f *forms.Form, wantJSON bool, status int, errs map[string]string) {
@@ -438,7 +441,8 @@ func (p *Public) fail(w http.ResponseWriter, r *http.Request, f *forms.Form, wan
 		}
 		list = append(list, label+": "+v)
 	}
-	renderPage(w, status, "Nie udało się wysłać formularza", "Wróć do formularza i popraw dane.", list)
+	lang := visitorLang(r)
+	renderPage(w, lang, status, i18n.In(lang, "The form could not be sent"), i18n.In(lang, "Go back to the form and correct it."), list)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -448,13 +452,30 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 var pageTmpl = template.Must(template.New("page").Parse(`<!doctype html>
-<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="{{.Lang}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:36rem;margin:10vh auto;padding:0 1rem;color:#222}h1{font-size:1.4rem}li{color:#a00}</style>
 </head><body><h1>{{.Title}}</h1><p>{{.Msg}}</p>{{if .Errors}}<ul>{{range .Errors}}<li>{{.}}</li>{{end}}</ul>{{end}}</body></html>`))
 
-func renderPage(w http.ResponseWriter, status int, title, msg string, errs []string) {
+func renderPage(w http.ResponseWriter, lang i18n.Lang, status int, title, msg string, errs []string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	pageTmpl.Execute(w, map[string]any{"Title": title, "Msg": msg, "Errors": errs})
+	pageTmpl.Execute(w, map[string]any{"Lang": string(lang), "Title": title, "Msg": msg, "Errors": errs})
+}
+
+// visitorLang picks the language of messages shown to a site visitor:
+// formd.js passes the page's <html lang> as ?lang=; a plain form post falls
+// back to the browser's first Accept-Language, then to FORMD_LANG.
+func visitorLang(r *http.Request) i18n.Lang {
+	if l, ok := i18n.Parse(r.URL.Query().Get("lang")); ok {
+		return l
+	}
+	al := r.Header.Get("Accept-Language")
+	if i := strings.IndexAny(al, ",;"); i >= 0 {
+		al = al[:i]
+	}
+	if l, ok := i18n.Parse(al); ok {
+		return l
+	}
+	return i18n.Default()
 }
