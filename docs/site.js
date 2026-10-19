@@ -66,6 +66,57 @@
     }
   }
 
+  // ---- easter egg: the logo proves it is human ----
+  // Three quick clicks on the logo (or typing "formd" outside a field) run a
+  // real proof-of-work, the same SHA-256 search formd.js does before sending.
+  (function () {
+    var logo = document.querySelector('.nav .logo');
+    if (!logo) return;
+    var running = false, clicks = [], typed = '';
+    function hex(n) { return ('00000000' + (n >>> 0).toString(16)).slice(-8); }
+    async function play() {
+      if (running) return;
+      running = true;
+      var badge = document.createElement('span');
+      badge.className = 'pow-badge'; badge.setAttribute('role', 'status');
+      logo.appendChild(badge);
+      logo.classList.remove('pow'); void logo.offsetWidth; logo.classList.add('pow');
+      requestAnimationFrame(function () { badge.classList.add('on'); });
+      var prefix = new TextEncoder().encode('formd.top:' + Date.now() + ':');
+      var bytes = new Uint8Array(prefix.length + 20); bytes.set(prefix);
+      var limit = 0xffffffff >>> 14, shown = 0, t0 = performance.now(), h = 0, k = 0;
+      for (;; k++) {
+        var s = String(k), len = prefix.length;
+        for (var i = 0; i < s.length; i++) bytes[len++] = s.charCodeAt(i);
+        h = sha256First(bytes, len);
+        if (h <= limit) break;
+        if (performance.now() - shown > 45) { badge.textContent = 'sha256 ' + hex(h) + '…'; shown = performance.now(); await new Promise(function (r) { setTimeout(r, 0); }); }
+      }
+      var wait = 900 - (performance.now() - t0);
+      if (wait > 0) await new Promise(function (r) { setTimeout(r, wait); });
+      badge.textContent = 'sha256 ' + hex(h) + ' ';
+      var ok = document.createElement('b'); ok.textContent = t('✓ human, probably', '✓ chyba człowiek');
+      badge.appendChild(ok);
+      setTimeout(function () { badge.classList.remove('on'); }, 2400);
+      setTimeout(function () { badge.remove(); logo.classList.remove('pow'); running = false; }, 2700);
+    }
+    logo.addEventListener('click', function (e) {
+      // The logo links to this page: scroll up instead of reloading, and count.
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      var now = Date.now();
+      clicks = clicks.filter(function (c) { return now - c < 900; });
+      clicks.push(now);
+      if (clicks.length >= 3) { clicks = []; play(); }
+    });
+    document.addEventListener('keydown', function (e) {
+      var el = e.target;
+      if (e.ctrlKey || e.metaKey || e.altKey || (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)))) return;
+      typed = (typed + (e.key || '')).slice(-5).toLowerCase();
+      if (typed === 'formd') { typed = ''; play(); }
+    });
+  })();
+
   // ---- hero diagram: an endless stream of people and bots ----
   (function () {
     var stage = document.querySelector('.viz-stage');
