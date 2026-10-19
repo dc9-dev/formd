@@ -6,6 +6,16 @@
 (function () {
   'use strict';
 
+  // The page language picks the strings; the same script serves / and /pl/.
+  var EN = document.documentElement.lang !== 'pl';
+  function t(en, pl) { return EN ? en : pl; }
+
+  // Remember an explicit language choice so / does not send a Polish
+  // browser back to /pl/ after the visitor picked English.
+  document.querySelectorAll('[data-lang]').forEach(function (a) {
+    a.addEventListener('click', function () { try { localStorage.setItem('formd-lang', a.getAttribute('data-lang')); } catch (e) {} });
+  });
+
   // ---- SHA-256 (first word only), same algorithm as formd.js ----
   var K = new Uint32Array([
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -67,13 +77,13 @@
     var nPass = document.querySelector('[data-pass]'), nStop = document.querySelector('[data-stop]');
     var pass = 0, stop = 0, i = 0, visible = true;
     var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var people = ['Anna', 'Piotr', 'Kasia', 'Marek', 'Ola', 'Tomek'];
+    var people = t(['Anna', 'James', 'Kate', 'Mark', 'Olivia', 'Tom'], ['Anna', 'Piotr', 'Kasia', 'Marek', 'Ola', 'Tomek']);
     var bots = [
-      { at: 'pulapka', why: 'pole-pułapka wypełnione: udawany sukces' },
-      { at: 'czas', why: 'wysłane po 0,3 s: 400' },
-      { at: 'token', why: 'brak tokenu, bot bez JS: 400' },
-      { at: 'limit', why: '6. zgłoszenie w 10 min: 429' },
-      { at: 'duplikat', why: 'ta sama treść drugi raz: udawany sukces' }
+      { at: 'pulapka', why: t('honeypot filled: fake success', 'pole-pułapka wypełnione: udawany sukces') },
+      { at: 'czas', why: t('sent after 0.3 s: 400', 'wysłane po 0,3 s: 400') },
+      { at: 'token', why: t('no token, bot without JS: 400', 'brak tokenu, bot bez JS: 400') },
+      { at: 'limit', why: t('6th submission in 10 min: 429', '6. zgłoszenie w 10 min: 429') },
+      { at: 'duplikat', why: t('same content again: fake success', 'ta sama treść drugi raz: udawany sukces') }
     ];
     var plan = ['p', 'b', 'b', 'p', 'b', 'b', 'b', 'p', 'b', 'b'];
     var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
@@ -88,7 +98,7 @@
     }
     function addRow(name) {
       var li = document.createElement('li'), b = document.createElement('b'), sp = document.createElement('span');
-      b.textContent = name; sp.textContent = 'nowa wiadomość';
+      b.textContent = name; sp.textContent = t('new message', 'nowa wiadomość');
       li.append(b, sp); rows.prepend(li);
       while (rows.children.length > 4) rows.lastChild.remove();
     }
@@ -96,7 +106,7 @@
       var human = plan[i % plan.length] === 'p';
       var bot = bots[i % bots.length], name = people[i % people.length];
       i++;
-      // the visitor (or bot) types a name and presses Wyślij
+      // the visitor (or bot) types a name and presses Send
       typed.textContent = '';
       var label = human ? name : 'SEO PROMO!!!';
       for (var j = 1; j <= label.length; j++) { typed.textContent = label.slice(0, j); await sleep(human ? 55 : 12); }
@@ -134,7 +144,7 @@
       }
     }
     if (calm) {
-      addRow('Kasia'); addRow('Piotr'); addRow('Anna');
+      addRow(people[2]); addRow(people[1]); addRow(people[0]);
       ticks.forEach(function (t) { t.className = t.getAttribute('data-c') === 'pulapka' ? 'bad' : (t.getAttribute('data-c') === 'duplikat' ? '' : 'ok'); });
       why.textContent = bots[0].why; nPass.textContent = '3'; nStop.textContent = '7';
       return;
@@ -198,7 +208,7 @@
   (function () {
     var setup = document.getElementById('setup');
     if (!setup) return;
-    var input = setup.elements.domain, DEF = 'twojastrona.pl';
+    var input = setup.elements.domain, DEF = t('yoursite.com', 'twojastrona.pl');
     var clean = function (v) {
       v = v.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
       return /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(v) ? v : '';
@@ -227,12 +237,12 @@
 
     document.querySelectorAll('.g-code').forEach(function (box) {
       var b = document.createElement('button');
-      b.type = 'button'; b.className = 'copy'; b.textContent = 'Kopiuj';
+      b.type = 'button'; b.className = 'copy'; b.textContent = t('Copy', 'Kopiuj');
       b.addEventListener('click', function () {
         var pre = Array.prototype.filter.call(box.querySelectorAll('pre'), function (p) { return !p.hidden; })[0];
         var clone = pre.cloneNode(true);
         clone.querySelectorAll('[hidden]').forEach(function (h) { h.remove(); });
-        var done = function (ok) { b.textContent = ok ? 'Skopiowano' : 'Zaznacz ręcznie'; setTimeout(function () { b.textContent = 'Kopiuj'; }, 1600); };
+        var done = function (ok) { b.textContent = ok ? t('Copied', 'Skopiowano') : t('Select it manually', 'Zaznacz ręcznie'); setTimeout(function () { b.textContent = t('Copy', 'Kopiuj'); }, 1600); };
         if (navigator.clipboard) navigator.clipboard.writeText(clone.textContent).then(function () { done(true); }, function () { done(false); });
         else done(false);
       });
@@ -269,11 +279,11 @@
   var demo = document.getElementById('demo');
   if (!demo) return;
 
-  var fmt = new Intl.NumberFormat('pl-PL', { useGrouping: 'always' });
+  var fmt = new Intl.NumberFormat(t('en-US', 'pl-PL'), { useGrouping: 'always' });
   var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function wait(ms) { return new Promise(function (r) { setTimeout(r, still ? 0 : ms); }); }
   function q(sel) { return demo.querySelector(sel); }
-  function secs(ms) { return (ms / 1000).toFixed(1).replace('.', ',') + ' s'; }
+  function secs(ms) { var v = (ms / 1000).toFixed(1); return (EN ? v : v.replace('.', ',')) + ' s'; }
 
   var form = q('#contact');
   var siteStatus = q('[data-site-status]');
@@ -311,7 +321,7 @@
   function addMail(to, subj, body) {
     var empty = mails.querySelector('.empty'); if (empty) empty.remove();
     var li = document.createElement('li'); li.className = 'mail';
-    var a = document.createElement('div'); a.className = 'to'; a.textContent = 'Do: ' + to;
+    var a = document.createElement('div'); a.className = 'to'; a.textContent = t('To: ', 'Do: ') + to;
     var b = document.createElement('div'); b.className = 'subj'; b.textContent = subj;
     var c = document.createElement('div'); c.className = 'body'; c.textContent = body;
     li.append(a, b, c);
@@ -329,75 +339,76 @@
 
     setStep('token', 'run'); await wait(p);
     if (!sub.js) {
-      setStep('token', 'bad', 'brak tokenu: bez JavaScriptu nie było czego podpisać');
+      setStep('token', 'bad', t('no token: without JavaScript there was nothing to sign', 'brak tokenu: bez JavaScriptu nie było czego podpisać'));
       skipFrom('token'); return 400;
     }
-    setStep('token', 'ok', 'jednorazowy, podpisany HMAC, ważny 2 godziny');
+    setStep('token', 'ok', t('single-use, HMAC-signed, valid for 2 hours', 'jednorazowy, podpisany HMAC, ważny 2 godziny'));
 
     setStep('pow', 'run');
     var r = await solve(16); await wait(p);
-    setStep('pow', 'ok', fmt.format(r.tries) + ' prób SHA-256 w ' + Math.max(1, Math.round(r.ms)) + ' ms');
+    setStep('pow', 'ok', fmt.format(r.tries) + t(' SHA-256 tries in ', ' prób SHA-256 w ') + Math.max(1, Math.round(r.ms)) + ' ms');
 
     setStep('origin', 'run'); await wait(p);
-    setStep('origin', 'ok', 'https://twojastrona.pl jest na liście');
+    setStep('origin', 'ok', t('https://yoursite.com is on the list', 'https://twojastrona.pl jest na liście'));
 
     setStep('rate', 'run'); await wait(p);
     var now = Date.now(), list = (hits[sub.ip] || []).filter(function (t) { return now - t < 600000; });
     list.push(now); hits[sub.ip] = list;
     if (list.length > 5) {
-      setStep('rate', 'bad', list.length + '. zgłoszenie z ' + sub.ip + ' w 10 minut');
+      setStep('rate', 'bad', t('submission ' + list.length + ' from ' + sub.ip + ' in 10 minutes', list.length + '. zgłoszenie z ' + sub.ip + ' w 10 minut'));
       skipFrom('rate'); return 429;
     }
-    setStep('rate', 'ok', list.length + ' z 5 w ciągu 10 minut');
+    setStep('rate', 'ok', list.length + t(' of 5 within 10 minutes', ' z 5 w ciągu 10 minut'));
 
     setStep('time', 'run'); await wait(p);
     if (sub.elapsed < 3000) {
-      setStep('time', 'bad', 'wysłane ' + secs(sub.elapsed) + ' po pobraniu tokenu');
+      setStep('time', 'bad', t('sent ' + secs(sub.elapsed) + ' after the token was issued', 'wysłane ' + secs(sub.elapsed) + ' po pobraniu tokenu'));
       skipFrom('time'); return 400;
     }
-    setStep('time', 'ok', secs(sub.elapsed) + ' od otwarcia formularza');
+    setStep('time', 'ok', secs(sub.elapsed) + t(' since the form was opened', ' od otwarcia formularza'));
 
     setStep('trap', 'run'); await wait(p);
     if (sub.website) {
-      setStep('trap', 'fake', 'wypełnione: „' + sub.website.slice(0, 40) + '”');
+      setStep('trap', 'fake', t('filled in: “' + sub.website.slice(0, 40) + '”', 'wypełnione: „' + sub.website.slice(0, 40) + '”'));
       skipFrom('trap'); return 'fake';
     }
-    setStep('trap', 'ok', 'puste');
+    setStep('trap', 'ok', t('empty', 'puste'));
 
     setStep('dup', 'run'); await wait(p);
     var key = [sub.name, sub.email, sub.message].join('\u0000');
     if (seen[key]) {
-      setStep('dup', 'fake', 'ta sama treść już jest w bazie');
+      setStep('dup', 'fake', t('the same content is already in the database', 'ta sama treść już jest w bazie'));
       skipFrom('dup'); return 'fake';
     }
-    setStep('dup', 'ok', 'nowa treść');
+    setStep('dup', 'ok', t('new content', 'nowa treść'));
 
     setStep('save', 'run'); await wait(p);
     seen[key] = true;
-    setStep('save', 'ok', 'zapisano, 2 maile w kolejce');
+    setStep('save', 'ok', t('saved, 2 emails queued', 'zapisano, 2 maile w kolejce'));
     return 'ok';
   }
 
   function deliver(sub) {
     saved++; count.textContent = saved;
     last = { name: sub.name, email: sub.email, message: sub.message };
-    addMail('biuro@twojastrona.pl', 'Nowa wiadomość od ' + sub.name, sub.message);
-    addMail(sub.email, 'Dziękujemy za wiadomość', 'Odpowiemy najszybciej, jak się da.');
+    addMail(t('hello@yoursite.com', 'biuro@twojastrona.pl'), t('New message from ', 'Nowa wiadomość od ') + sub.name, sub.message);
+    addMail(sub.email, t('Thanks for your message', 'Dziękujemy za wiadomość'), t('We will get back to you as soon as we can.', 'Odpowiemy najszybciej, jak się da.'));
   }
 
   function explain(res, bot) {
     if (res === 'ok') {
-      say('ok', 'Przeszło.', bot ? 'Ten bot zachowywał się jak człowiek. Na takie przypadki jest opcjonalna ocena treści przez Jev.' : 'Zgłoszenie jest w bazie, a maile w kolejce. Gdy serwer poczty nie odpowiada, formd ponawia wysyłkę do 24 godzin.');
-      site('ok', 'Dziękujemy! Wiadomość została wysłana.');
+      say('ok', t('Passed.', 'Przeszło.'), bot ? t('This bot behaved like a person. That is what the optional content check by a language model is for, see below.', 'Ten bot zachowywał się jak człowiek. Na takie przypadki jest opcjonalna ocena treści polskim modelem, opisana niżej.') : t('The submission is in the database and the emails are queued. If the mail server does not answer, formd keeps retrying for up to 24 hours.', 'Zgłoszenie jest w bazie, a maile w kolejce. Gdy serwer poczty nie odpowiada, formd ponawia wysyłkę do 24 godzin.'));
+      site('ok', t('Thank you! Your message has been sent.', 'Dziękujemy! Wiadomość została wysłana.'));
     } else if (res === 'fake') {
-      say('fake', 'Udawany sukces.', 'Bot dostaje „Dziękujemy”, ale nic nie zapisano i żaden mail nie wyszedł. Prawdziwy błąd podpowiedziałby mu, jak obejść filtr.');
-      site('ok', 'Dziękujemy! Wiadomość została wysłana.');
+      say('fake', t('Fake success.', 'Udawany sukces.'), t('The bot gets “Thank you”, but nothing is saved and no email goes out. A real error would tell it how to get past the filter.', 'Bot dostaje „Dziękujemy”, ale nic nie zapisano i żaden mail nie wyszedł. Prawdziwy błąd podpowiedziałby mu, jak obejść filtr.'));
+      site('ok', t('Thank you! Your message has been sent.', 'Dziękujemy! Wiadomość została wysłana.'));
     } else if (res === 429) {
-      say('bad', 'HTTP 429.', 'Za dużo zgłoszeń z jednego adresu. Nic nie zapisano.');
-      site('bad', 'zbyt wiele zgłoszeń, spróbuj później');
+      say('bad', 'HTTP 429.', t('Too many submissions from one address. Nothing was saved.', 'Za dużo zgłoszeń z jednego adresu. Nic nie zapisano.'));
+      site('bad', t('The form could not be sent.', 'zbyt wiele zgłoszeń, spróbuj później'));
     } else {
-      say('bad', 'HTTP 400.', 'Zgłoszenie odrzucone, nic nie zapisano.');
-      site('bad', steps.time.li.className === 'bad' ? 'formularz wysłano zbyt szybko, spróbuj ponownie za chwilę' : 'weryfikacja nie powiodła się, odśwież stronę i spróbuj ponownie');
+      say('bad', 'HTTP 400.', t('Submission rejected, nothing was saved.', 'Zgłoszenie odrzucone, nic nie zapisano.'));
+      // the English snippet sets data-formd-server-errors="off", so visitors see data-formd-error
+      site('bad', EN ? 'The form could not be sent.' : steps.time.li.className === 'bad' ? 'formularz wysłano zbyt szybko, spróbuj ponownie za chwilę' : 'weryfikacja nie powiodła się, odśwież stronę i spróbuj ponownie');
     }
   }
 
@@ -406,9 +417,9 @@
     e.preventDefault();
     if (busy) return;
     var f = form.elements;
-    var sub = { who: 'Ty', ip: HUMAN_IP, js: true, name: f.name.value.trim(), email: f.email.value.trim(), message: f.message.value.trim(), website: '', elapsed: performance.now() - tokenAt };
-    if (!sub.name || !sub.message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sub.email)) { site('bad', 'Uzupełnij imię, poprawny e-mail i wiadomość.'); return; }
-    lock(true); site('', 'Wysyłanie…');
+    var sub = { who: t('you', 'Ty'), ip: HUMAN_IP, js: true, name: f.name.value.trim(), email: f.email.value.trim(), message: f.message.value.trim(), website: '', elapsed: performance.now() - tokenAt };
+    if (!sub.name || !sub.message || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sub.email)) { site('bad', t('Enter a name, a valid email address and a message.', 'Uzupełnij imię, poprawny e-mail i wiadomość.')); return; }
+    lock(true); site('', t('Sending…', 'Wysyłanie…'));
     var res = await check(sub, 260);
     if (res === 'ok') deliver(sub);
     explain(res, false);
@@ -417,7 +428,7 @@
   });
 
   // ---- bots ----
-  var spam = { name: 'SEO Expert', email: 'seo@spam.example', message: 'Najtańsze linki SEO, kup teraz! http://spam.example' };
+  var spam = { name: 'SEO Expert', email: 'seo@spam.example', message: t('Cheapest SEO links, buy now! http://spam.example', 'Najtańsze linki SEO, kup teraz! http://spam.example') };
   function bot(extra) {
     var s = { who: 'bot', ip: BOT_IP, js: true, website: '', elapsed: 5200 };
     Object.keys(spam).forEach(function (k) { s[k] = spam[k]; });
@@ -434,7 +445,7 @@
       return [r];
     },
     dup: async function () {
-      if (!last) { resetSteps(); say('fake', 'Najpierw wyślij formularz sam.', 'Ten bot powtarza ostatnie zgłoszenie, które przeszło.'); return []; }
+      if (!last) { resetSteps(); say('fake', t('Send the form yourself first.', 'Najpierw wyślij formularz sam.'), t('This bot repeats the last submission that got through.', 'Ten bot powtarza ostatnie zgłoszenie, które przeszło.')); return []; }
       return [await check(bot({ ip: '198.51.100.14', name: last.name, email: last.email, message: last.message }), 260)];
     },
     flood: async function () {
@@ -453,9 +464,9 @@
       if (name === 'flood') {
         var n400 = res.filter(function (r) { return r === 400; }).length, n429 = res.filter(function (r) { return r === 429; }).length;
         var parts = [];
-        if (n400) parts.push('za szybko (400): ' + n400);
-        if (n429) parts.push('limit dla IP (429): ' + n429);
-        say('bad', '10 zgłoszeń z jednego IP.', 'Odrzucone: ' + parts.join(', ') + '. Nic nie zapisano.');
+        if (n400) parts.push(t('too fast (400): ', 'za szybko (400): ') + n400);
+        if (n429) parts.push(t('IP limit (429): ', 'limit dla IP (429): ') + n429);
+        say('bad', t('10 submissions from one IP.', '10 zgłoszeń z jednego IP.'), t('Rejected: ', 'Odrzucone: ') + parts.join(', ') + t('. Nothing was saved.', '. Nic nie zapisano.'));
       } else if (res.length) explain(res[0], true);
       lock(false);
     });
@@ -467,7 +478,7 @@
     hits = {}; seen = {}; saved = 0; blocked = 0; last = null; tokenAt = performance.now();
     count.textContent = '0'; blockedBox.hidden = true;
     mails.textContent = '';
-    var li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Tu pojawią się maile, gdy zgłoszenie przejdzie.';
+    var li = document.createElement('li'); li.className = 'empty'; li.textContent = t('Emails show up here when a submission gets through.', 'Tu pojawią się maile, gdy zgłoszenie przejdzie.');
     mails.appendChild(li);
     req.textContent = ''; site('', ''); resetSteps();
   });

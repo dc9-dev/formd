@@ -48,7 +48,10 @@ button, input, textarea { font: inherit; color: inherit; }
 .nav-links { display: flex; gap: clamp(14px, 3vw, 32px); font-size: 0.9375rem; font-weight: 500; }
 .nav-links a { color: var(--muted); text-decoration: none; }
 .nav-links a:hover { color: var(--ink); }
-@media (max-width: 520px) { .nav-links a:not(:last-child) { display: none; } }
+.nav-links { align-items: center; }
+.nav-links .lang { color: var(--ink); border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 2px 10px; font-size: 0.8125rem; }
+.nav-links .lang:hover { border-color: var(--blue); color: var(--blue); }
+@media (max-width: 520px) { .nav-links a:not(:nth-last-child(-n+2)) { display: none; } }
 
 .hero {
   max-width: var(--max); margin: 0 auto;
@@ -220,16 +223,16 @@ button, input, textarea { font: inherit; color: inherit; }
 .reset:hover { color: var(--ink); }
 
 /* ---------- install guide ---------- */
-.install, .panel { max-width: var(--max); margin: 0 auto; padding: clamp(64px, 9vw, 112px) var(--gutter) 0; }
-.install h2, .panel h2 { font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 650; letter-spacing: -0.03em; line-height: 1.1; }
-.install, .panel.card {
+.install, .panel, .model { max-width: var(--max); margin: 0 auto; padding: clamp(64px, 9vw, 112px) var(--gutter) 0; }
+.install h2, .panel h2, .model h2 { font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 650; letter-spacing: -0.03em; line-height: 1.1; }
+.install, .panel.card, .model.card {
   max-width: calc(var(--max) - 2 * var(--gutter) + 2 * clamp(20px, 4vw, 56px));
   margin-top: clamp(64px, 9vw, 112px);
   padding: clamp(28px, 5vw, 56px) clamp(20px, 4vw, 56px) clamp(24px, 4vw, 40px);
   background: var(--bg); border: 1px solid var(--line); border-radius: 20px;
   box-shadow: 0 1px 2px rgba(22, 27, 38, .04), 0 24px 48px -28px rgba(22, 27, 38, .18);
 }
-@media (max-width: 1240px) { .install, .panel.card { margin-left: var(--gutter); margin-right: var(--gutter); } }
+@media (max-width: 1240px) { .install, .panel.card, .model.card { margin-left: var(--gutter); margin-right: var(--gutter); } }
 .install .setup { background: var(--surface); }
 .panel.card { margin-top: clamp(20px, 3vw, 32px); }
 .inst-head p { margin-top: 12px; max-width: 40em; color: var(--muted); font-size: 1.0625rem; }
@@ -298,6 +301,26 @@ button, input, textarea { font: inherit; color: inherit; }
 @media (max-width: 900px) {
   .g-step { grid-template-columns: minmax(0, 1fr); padding-left: 48px; }
 }
+
+/* ---------- content check: the Polish model, the options, one sample readout ---------- */
+.m-grid { margin-top: clamp(24px, 4vw, 36px); display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(24px, 4vw, 48px); align-items: start; }
+.m-opts { display: grid; gap: 20px; }
+.m-opts li { display: grid; gap: 4px; padding-left: 16px; border-left: 2px solid var(--line); }
+.m-opts li.m-main { border-left-color: var(--blue); }
+.m-opts b { font-weight: 600; }
+.m-opts span { color: var(--muted); font-size: 0.9375rem; line-height: 1.55; }
+.readout { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.readout figcaption { font: 500 0.75rem var(--mono); color: var(--muted); }
+.readout q { display: block; margin: 10px 0 14px; font-weight: 550; quotes: none; }
+.r-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) 3em; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.875rem; }
+.r-row output { font: 500 0.8125rem var(--mono); text-align: right; }
+.r-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.r-bar i { display: block; height: 100%; background: var(--green); }
+.r-bar.hi i { background: var(--red); }
+.r-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: 0.8125rem; color: var(--muted); }
+.r-meta b { color: var(--ink); font-weight: 550; }
+.r-verdict { margin-top: 14px; padding: 10px 12px; border-radius: 9px; background: var(--amber-soft); color: var(--amber); font-size: 0.875rem; }
+@media (max-width: 900px) { .m-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- panel: list on the left, screenshot on the right ---------- */
 .panel-head p { margin-top: 12px; max-width: 46em; color: var(--muted); font-size: 1.0625rem; }
