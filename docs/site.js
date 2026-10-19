@@ -239,7 +239,7 @@
         : '- The site runs on this same server. formd should be at https://' + (typed || '<domain>') + '/f/');
       if (!EN) head.push('- Reply to me in Polish and set FORMD_LANG=pl.');
       var done = function (ok) {
-        aiStatus.textContent = ok ? t('Copied. Paste it into your AI assistant.', 'Skopiowano. Wklej to swojemu asystentowi AI.') : t('Could not copy. Open install.md and copy it from there.', 'Nie udało się skopiować. Otwórz install.md i skopiuj stamtąd.');
+        aiStatus.textContent = ok ? t('Copied. Paste it into your AI assistant.', 'Skopiowano. Wklej to swojemu asystentowi AI.') : t('Could not copy. Try again, or use another browser.', 'Nie udało się skopiować. Spróbuj ponownie albo w innej przeglądarce.');
         aiStatus.style.color = ok ? '' : 'var(--red)';
       };
       if (!aiDoc || !navigator.clipboard) { done(false); return; }
