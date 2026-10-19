@@ -61,8 +61,9 @@
     <div><h2>Ocena treści (Jev)</h2><p>Model <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev" rel="noreferrer">Jev</a> ocenia, czy wiadomość to spam, oszustwo lub treść obraźliwa, i nadaje jej kategorię oraz pilność. Działa po wszystkich pozostałych filtrach.</p></div>
     <label class="switch"><input type="checkbox" name="jev_enabled" value="1" {{if $d.JevEnabled}}checked{{end}}><span></span>Włączona</label>
   </div>
-  {{if not .Data.JevReady}}<div class="note bad">Brak <code>OPENROUTER_API_KEY</code> w konfiguracji serwera, więc ocena nie zadziała, a zgłoszenia będą oznaczane jako „nie oceniono”.</div>{{end}}
-  <div class="note warn">Treść pól jest wysyłana do zewnętrznego API (OpenRouter → TypeSafe). Adresy e-mail są zastępowane samą domeną. Uwzględnij to w polityce prywatności strony.</div>
+  {{if not .Data.JevReady}}<div class="note bad">Ocena treści nie jest skonfigurowana na serwerze: ustaw <code>OPENROUTER_API_KEY</code> albo <code>JEV_PROVIDER=basal</code>. Do tego czasu zgłoszenia będą oznaczane jako „nie oceniono”.</div>
+  {{else if .Data.JevLocal}}<div class="note local">Ocenia model <code>{{.Data.JevModel}}</code> na Twoim serwerze (basal-serve). Treść pól nie opuszcza serwera.</div>
+  {{else}}<div class="note warn">Treść pól jest wysyłana do zewnętrznego API (model <code>{{.Data.JevModel}}</code>). Adresy e-mail są zastępowane samą domeną. Uwzględnij to w polityce prywatności strony.</div>{{end}}
   <div class="grid3">
     <label class="field">Gdy treść jest podejrzana<small>Ryzyko = max(spam, oszustwo, obraźliwe).</small>
       <select name="jev_action">

@@ -62,18 +62,31 @@ type Config struct {
 	Jev Jev
 }
 
-// Jev configures content assessment through TypeSafe's Jev model on
-// OpenRouter. It is off unless OPENROUTER_API_KEY is set; each form must
-// additionally opt in from the admin panel.
+// Jev configures content assessment. Provider "openrouter" (the default)
+// calls TypeSafe's Jev on OpenRouter and is off unless OPENROUTER_API_KEY is
+// set. Provider "basal" calls a self-hosted basal-serve with the same System
+// One API (for example Remek/basal-omni-1.0-ultra), needs no key and costs
+// nothing per request. Either way each form must opt in from the admin panel.
 type Jev struct {
-	APIKey         string
+	Provider       string // openrouter | basal
+	APIKey         string // OPENROUTER_API_KEY, or the optional BASAL_API_KEY of a gateway
 	Model          string
 	URL            string
 	Timeout        time.Duration
 	DailyBudgetUSD float64
 }
 
-func (j Jev) Enabled() bool { return j.APIKey != "" }
+func (j Jev) Enabled() bool { return j.SelfHosted() || j.APIKey != "" }
+
+// SelfHosted reports whether assessments go to the operator's own basal-serve.
+func (j Jev) SelfHosted() bool { return j.Provider == "basal" }
+
+// LocalURL reports whether JEV_URL points at this host, so content never
+// leaves the server.
+func (j Jev) LocalURL() bool {
+	u, err := url.Parse(j.URL)
+	return err == nil && isLoopbackHost(u.Hostname())
+}
 
 // Load reads envFile (if it exists) into the environment without overriding
 // variables that are already set, then builds and validates the Config.
@@ -102,13 +115,7 @@ func Load(envFile string) (*Config, error) {
 		SessionTTL:        e.dur("ADMIN_SESSION_TTL", "12h"),
 		SessionIdle:       e.dur("ADMIN_SESSION_IDLE", "1h"),
 		LogLevel:          e.str("LOG_LEVEL", "info"),
-		Jev: Jev{
-			APIKey:         e.str("OPENROUTER_API_KEY", ""),
-			Model:          e.str("JEV_MODEL", "jev-1.13"),
-			URL:            e.str("JEV_URL", "https://openrouter.ai/api/v1/systemone"),
-			Timeout:        e.dur("JEV_TIMEOUT", "4s"),
-			DailyBudgetUSD: e.float("JEV_DAILY_BUDGET_USD", 1),
-		},
+		Jev:               loadJev(e),
 		SMTP: SMTP{
 			Host: e.str("SMTP_HOST", ""),
 			Port: e.int("SMTP_PORT", 587),
@@ -174,15 +181,22 @@ func (c *Config) validate() error {
 	if c.MaxBody < 1024 || c.MaxBody > 10<<20 {
 		errs = append(errs, errors.New("MAX_BODY must be between 1KB and 10MB"))
 	}
+	if p := c.Jev.Provider; p != "openrouter" && p != "basal" {
+		errs = append(errs, fmt.Errorf("JEV_PROVIDER must be openrouter or basal, got %q", p))
+	}
 	if c.Jev.Enabled() {
-		// The API key travels in this request: refuse plaintext except to a
-		// local endpoint (tests, a local gateway).
+		// Form content (and the API key, if any) travels in this request:
+		// refuse plaintext except to a local endpoint (basal-serve on the same
+		// host, a local gateway, tests).
 		u, err := url.Parse(c.Jev.URL)
 		switch {
 		case err != nil || u.Host == "":
 			errs = append(errs, fmt.Errorf("JEV_URL: invalid URL %q", c.Jev.URL))
 		case u.Scheme != "https" && !(u.Scheme == "http" && isLoopbackHost(u.Hostname())):
 			errs = append(errs, errors.New("JEV_URL must use https (http is allowed only for localhost)"))
+		}
+		if c.Jev.Model == "" {
+			errs = append(errs, errors.New("JEV_MODEL must not be empty"))
 		}
 		if c.Jev.Timeout > 15*time.Second {
 			errs = append(errs, errors.New("JEV_TIMEOUT must be at most 15s (it delays form submission)"))
@@ -197,6 +211,22 @@ func (c *Config) validate() error {
 // AdminEnabled reports whether the admin panel listener should start.
 func (c *Config) AdminEnabled() bool {
 	return c.AdminListenAddr != "" && c.AdminListenAddr != "off"
+}
+
+// loadJev reads the content assessment settings; the defaults depend on the
+// provider so that JEV_PROVIDER=basal alone points at a local basal-serve.
+func loadJev(e *envReader) Jev {
+	j := Jev{Provider: strings.ToLower(e.str("JEV_PROVIDER", "openrouter"))}
+	model, endpoint, key := "jev-1.13", "https://openrouter.ai/api/v1/systemone", "OPENROUTER_API_KEY"
+	if j.SelfHosted() {
+		model, endpoint, key = "Remek/basal-omni-1.0-ultra", "http://127.0.0.1:8000/v1/systemone", "BASAL_API_KEY"
+	}
+	j.APIKey = e.str(key, "")
+	j.Model = e.str("JEV_MODEL", model)
+	j.URL = e.str("JEV_URL", endpoint)
+	j.Timeout = e.dur("JEV_TIMEOUT", "4s")
+	j.DailyBudgetUSD = e.float("JEV_DAILY_BUDGET_USD", 1)
+	return j
 }
 
 type envReader struct{ errs []error }

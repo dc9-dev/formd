@@ -36,7 +36,7 @@ type Public struct {
 	Log        *slog.Logger
 	Now        func() time.Time
 
-	// Jev assesses message content; nil when OPENROUTER_API_KEY is not set.
+	// Jev assesses message content; nil when assessment is not configured.
 	Jev Assessor
 }
 
@@ -326,7 +326,7 @@ func (p *Public) submit(w http.ResponseWriter, r *http.Request) {
 // problems are reported in Assessment.Error and the form's policy decides.
 func (p *Public) assess(ctx context.Context, f *forms.Form, values map[string]string, now time.Time) jev.Assessment {
 	if p.Jev == nil {
-		return jev.Assessment{Error: "Jev nie jest skonfigurowany (brak OPENROUTER_API_KEY)"}
+		return jev.Assessment{Error: "ocena treści nie jest skonfigurowana (brak OPENROUTER_API_KEY albo JEV_PROVIDER=basal)"}
 	}
 	spent, err := p.Store.JevSpent(ctx, now)
 	if err != nil {

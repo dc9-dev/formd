@@ -6,7 +6,7 @@
   <div class="stat"><b>{{.Live}}<span class="stat-of"> / {{len .Forms}}</span></b><span>aktywnych formularzy</span></div>
   {{if .Held}}<div class="stat warn"><b>{{.Held}}</b><span>czeka na zatwierdzenie</span></div>{{end}}
   <div class="stat {{if .Failed}}alert{{end}}"><b>{{.Failed}}</b><span>{{if .Failed}}<a href="/outbox?status=failed">nieudanych maili</a>{{else}}nieudanych maili{{end}}</span><small>wysyłka: {{.Mailer}}</small></div>
-  {{if .JevReady}}<div class="stat"><b>${{usd .JevSpent}}</b><span>Jev dzisiaj</span><small>budżet ${{usd .JevBudget}}</small></div>{{end}}
+  {{if and .JevReady (not .JevSelfHosted)}}<div class="stat"><b>${{usd .JevSpent}}</b><span>Jev dzisiaj</span><small>budżet ${{usd .JevBudget}}</small></div>{{end}}
 </section>
 
 {{if .Forms}}

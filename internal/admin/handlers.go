@@ -125,7 +125,7 @@ func (a *Admin) dashboard(w http.ResponseWriter, r *http.Request, s *store.Sessi
 	}
 	a.render(w, r, http.StatusOK, "dashboard", view{Title: "Formularze", Session: s, Data: map[string]any{
 		"Forms": list, "Failed": len(failed), "Mailer": a.Cfg.Mailer, "Total": total, "Live": live, "Held": heldTotal,
-		"JevReady": a.Cfg.Jev.Enabled(), "JevSpent": jevSpent, "JevBudget": a.Cfg.Jev.DailyBudgetUSD,
+		"JevReady": a.Cfg.Jev.Enabled(), "JevSelfHosted": a.Cfg.Jev.SelfHosted(), "JevSpent": jevSpent, "JevBudget": a.Cfg.Jev.DailyBudgetUSD,
 	}})
 }
 
@@ -184,11 +184,15 @@ type editData struct {
 	Rows     []forms.Field
 	Types    []string
 	JevReady bool
+	JevLocal bool   // basal-serve on this host: content never leaves the server
+	JevModel string // shown so the operator knows which model judges
 }
 
 func (a *Admin) editView(d forms.Definition) editData {
 	v := editView(d)
 	v.JevReady = a.Cfg.Jev.Enabled()
+	v.JevLocal = a.Cfg.Jev.SelfHosted() && a.Cfg.Jev.LocalURL()
+	v.JevModel = a.Cfg.Jev.Model
 	return v
 }
 

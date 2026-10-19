@@ -65,6 +65,26 @@ func TestClientRequestAndAnswer(t *testing.T) {
 	}
 }
 
+func TestSelfHostedNoKeyNoCost(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := r.Header["Authorization"]; ok {
+			t.Errorf("Authorization sent without a key: %q", r.Header.Get("Authorization"))
+		}
+		// basal-serve reports tokens and latency but no cost.
+		json.NewEncoder(w).Encode(map[string]any{"model": "Remek/basal-omni-1.0-ultra", "answers": okAnswers(0.05),
+			"usage": map[string]any{"input_tokens": 400, "output_tokens": 0, "latency_ms": 80}})
+	}))
+	defer srv.Close()
+	c := &Client{URL: srv.URL, Model: "Remek/basal-omni-1.0-ultra", Timeout: 2 * time.Second, SelfHosted: true}
+	res, err := c.Ask(context.Background(), "x", questions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Cost != 0 || res.Estimated || res.Model != "Remek/basal-omni-1.0-ultra" {
+		t.Fatalf("self-hosted result: %+v", res)
+	}
+}
+
 func TestClientRetriesOnceAndRedactsKey(t *testing.T) {
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

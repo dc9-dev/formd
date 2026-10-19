@@ -87,7 +87,7 @@ type Definition struct {
 	ConfirmHTML            string   `json:"confirm_html"`
 	ConfirmPerRecipientDay int      `json:"confirm_per_recipient_day"`
 
-	// Content assessment with Jev (sends field values to OpenRouter).
+	// Content assessment with Jev or a self-hosted basal model (sends field values to it).
 	JevEnabled     bool   `json:"jev_enabled"`
 	JevContext     string `json:"jev_context"`       // what the site is about; improves judgement
 	JevAction      string `json:"jev_action"`        // tag | hold | drop

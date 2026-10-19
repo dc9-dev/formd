@@ -161,6 +161,7 @@ input::placeholder, textarea::placeholder { color: #9aa3b5; }
 .note.ok { background: var(--green-tint); color: #06512f; }
 .note.bad { background: var(--red-tint); color: #8a1520; }
 .note.warn { background: var(--amber-tint); color: #6b3a05; margin: 0; }
+.note.local { background: var(--green-tint); color: #06512f; margin: 0; }
 .panel .note + .note, .panel .note + .grid3, .panel .note + .field { margin-top: 16px; }
 .panel .grid3 + .field { margin-top: 18px; }
 .hint { color: var(--muted); font-size: 14px; margin: 0; }

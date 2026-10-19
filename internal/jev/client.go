@@ -1,6 +1,8 @@
-// Package jev is a minimal client for Jev, TypeSafe's decision model, served
-// through OpenRouter's System One endpoint. Jev takes free-form state plus typed
-// questions (choice / score / noul) and returns calibrated probabilities.
+// Package jev is a minimal client for System One decision models: Jev,
+// TypeSafe's model on OpenRouter, or a self-hosted basal-serve (for example
+// Remek/basal-omni-1.0-ultra), which speaks the same API. The model takes
+// free-form state plus typed questions (choice / score / noul) and returns
+// calibrated probabilities.
 package jev
 
 import (
@@ -81,6 +83,9 @@ type Client struct {
 	Model   string
 	Timeout time.Duration
 	HTTP    *http.Client
+	// SelfHosted marks a basal-serve on the operator's own hardware: there is
+	// no per-token price, so an unreported cost is 0 rather than estimated.
+	SelfHosted bool
 }
 
 // Ask sends one request. It retries once on 429/5xx when the deadline allows.
@@ -132,7 +137,7 @@ func (c *Client) Ask(ctx context.Context, state string, questions map[string]Que
 	}
 	if data.Usage.Cost != nil {
 		res.Cost = *data.Usage.Cost
-	} else {
+	} else if !c.SelfHosted {
 		res.Cost = float64(res.InputTokens) * EstimatedUSDPerInputToken
 		res.Estimated = true
 	}
@@ -144,7 +149,9 @@ func (c *Client) send(ctx context.Context, body []byte) (int, []byte, time.Durat
 	if err != nil {
 		return 0, nil, 0, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	if c.APIKey != "" { // basal-serve has no auth; a gateway in front may
+		req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	}
 	req.Header.Set("Content-Type", "application/json")
 	hc := c.HTTP
 	if hc == nil {

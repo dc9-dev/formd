@@ -156,9 +156,10 @@ func serve(cfg *config.Config, log *slog.Logger) error {
 	if cfg.Jev.Enabled() {
 		pub.Jev = &jev.Client{
 			URL: cfg.Jev.URL, APIKey: cfg.Jev.APIKey, Model: cfg.Jev.Model, Timeout: cfg.Jev.Timeout,
-			HTTP: &http.Client{Timeout: cfg.Jev.Timeout + time.Second},
+			HTTP:       &http.Client{Timeout: cfg.Jev.Timeout + time.Second},
+			SelfHosted: cfg.Jev.SelfHosted(),
 		}
-		log.Info("jev content assessment available", "model", cfg.Jev.Model, "daily_budget_usd", cfg.Jev.DailyBudgetUSD)
+		log.Info("jev content assessment available", "provider", cfg.Jev.Provider, "model", cfg.Jev.Model, "daily_budget_usd", cfg.Jev.DailyBudgetUSD)
 	}
 	servers := []*http.Server{newServer(cfg.ListenAddr, pub.Handler(), log)}
 
