@@ -2,9 +2,11 @@
 
 # formd
 
+[![CI](https://github.com/dc9-dev/formd/actions/workflows/ci.yml/badge.svg)](https://github.com/dc9-dev/formd/actions/workflows/ci.yml) [![Wydanie](https://img.shields.io/github/v/release/dc9-dev/formd)](https://github.com/dc9-dev/formd/releases/latest) [![Licencja: AGPL-3.0](https://img.shields.io/badge/licencja-AGPL--3.0-blue)](LICENSE)
+
 **Samodzielny backend formularzy dla stron statycznych.** Jedna binarka w Go, którą instalujesz na tym samym serwerze co stronę. Przyjmuje formularz, waliduje go, zapisuje do SQLite i wysyła powiadomienie do właściciela oraz potwierdzenie do nadawcy (SMTP, Amazon SES albo tylko log). Bez zewnętrznych SaaS-ów, bez captchy od firm trzecich, bez wysyłania danych poza serwer.
 
-Strona projektu: **https://formd.top/**
+Strona projektu: **https://formd.top/**. Jest tam demo na żywo: możesz wysłać formularz albo bota i zobaczyć, która kontrola go zatrzyma. Jest też instrukcja instalacji krok po kroku, dopasowana do Twojej domeny.
 
 ```
 przeglądarka ──POST /f/kontakt──▶ nginx/Caddy (TLS) ──▶ 127.0.0.1:8025  formd (API)
@@ -19,6 +21,8 @@ przeglądarka ──POST /f/kontakt──▶ nginx/Caddy (TLS) ──▶ 127.0.0
 - **Panel admina**: tworzenie i konfiguracja formularzy (pola, originy, odbiorcy, szablony maili, limity), przegląd i eksport zgłoszeń (CSV), kolejka maili z ponawianiem, dziennik zdarzeń.
 - **Kolejka maili (outbox)**: zgłoszenie i maile zapisują się w jednej transakcji, więc awaria SMTP nie gubi wiadomości. Nieudane wysyłki są ponawiane z backoffem (1 min → 24 h).
 - **Retencja**: zgłoszenia starsze niż N dni są automatycznie usuwane (RODO).
+
+![Panel formd: lista zgłoszeń formularza](docs/assets/panel-submissions.webp)
 
 ## Bezpieczeństwo
 
