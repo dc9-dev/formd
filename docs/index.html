@@ -44,7 +44,7 @@ try {
   "inLanguage": "en",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux",
-  "softwareVersion": "0.2.0",
+  "softwareVersion": "0.3.0",
   "downloadUrl": "https://github.com/dc9-dev/formd/releases/latest",
   "license": "https://www.gnu.org/licenses/agpl-3.0.html",
   "isAccessibleForFree": true,
@@ -289,8 +289,8 @@ try {
         <p>One statically linked binary for Linux x86-64 or ARM64. Verify the checksum before installing.</p>
         <p class="g-alt">Prefer to build it yourself? You only need Go 1.27.2 or newer: <code>go build -o formd ./cmd/formd</code> in a clone of the repository.</p>
       </div>
-      <div class="g-code" data-label="server"><pre><code>curl -LO https://github.com/dc9-dev/formd/releases/download/v0.2.0/formd-linux-amd64
-curl -LO https://github.com/dc9-dev/formd/releases/download/v0.2.0/SHA256SUMS
+      <div class="g-code" data-label="server"><pre><code>curl -LO https://github.com/dc9-dev/formd/releases/download/v0.3.0/formd-linux-amd64
+curl -LO https://github.com/dc9-dev/formd/releases/download/v0.3.0/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS</code></pre></div>
     </li>
 
@@ -299,7 +299,7 @@ sha256sum --check --ignore-missing SHA256SUMS</code></pre></div>
         <h3>Install the service</h3>
         <p>The script creates a <code>formd</code> system user, copies the binary to <code>/usr/local/bin</code>, creates <code>/etc/formd/formd.env</code> with mode 0640 and installs a hardened systemd unit.</p>
       </div>
-      <div class="g-code" data-label="server"><pre><code>git clone --depth 1 --branch v0.2.0 https://github.com/dc9-dev/formd
+      <div class="g-code" data-label="server"><pre><code>git clone --depth 1 --branch v0.3.0 https://github.com/dc9-dev/formd
 cd formd
 sudo sh deploy/install.sh ../formd-linux-amd64</code></pre></div>
     </li>
@@ -405,15 +405,10 @@ server {
       <div class="g-text">
         <h3>Put the form on your site</h3>
         <p>Plain HTML and one script that fetches the token and does the proof-of-work. The panel also has ready-made code for every form, under “Kod HTML”.</p>
-        <p class="g-alt">formd’s built-in messages are in Polish. The <code>data-formd-*</code> attributes below replace them with English ones.</p>
+        <p class="g-alt">Messages to visitors follow your page’s <code>&lt;html lang&gt;</code>: English, or Polish for <code>pl</code>. Other languages can be set with <code>data-formd-*</code> attributes on the form.</p>
         <p class="g-alt" data-variant="other" hidden>If your site sends a CSP header, add <code><span data-h>forms.yoursite.com</span></code> to <code>script-src</code>, <code>connect-src</code> and <code>form-action</code>.</p>
       </div>
-      <div class="g-code" data-label="contact.html"><pre><code>&lt;form action="<span data-base></span>/f/contact" method="post" data-formd="ajax"
-      data-formd-sending="Sending…"
-      data-formd-success="Thank you! Your message has been sent."
-      data-formd-error="The form could not be sent."
-      data-formd-network-error="Could not send the form. Try again."
-      data-formd-server-errors="off"&gt;
+      <div class="g-code" data-label="contact.html"><pre><code>&lt;form action="<span data-base></span>/f/contact" method="post" data-formd="ajax"&gt;
   &lt;input name="name" required&gt;
   &lt;input type="email" name="email" required&gt;
   &lt;textarea name="message" required&gt;&lt;/textarea&gt;
@@ -445,7 +440,7 @@ curl https://<span data-h>yoursite.com</span>/f/contact/challenge
 <section class="panel card" id="panel" aria-labelledby="panel-h">
   <div class="panel-head">
     <h2 id="panel-h">Only you see the&nbsp;panel</h2>
-    <p>You open it through an SSH tunnel and never expose it to the internet. The data stays on your server, passwords are stored with argon2id, and sessions live on the server with CSRF protection. The panel is in Polish for now.</p>
+    <p>You open it through an SSH tunnel and never expose it to the internet. The data stays on your server, passwords are stored with argon2id, and sessions live on the server with CSRF protection.</p>
   </div>
 
   <div class="shots">
@@ -454,13 +449,13 @@ curl https://<span data-h>yoursite.com</span>/f/contact/challenge
         <b>Forms</b><span>All your forms on one screen: how many submissions are stored, how many wait for approval and whether any email failed.</span>
       </button>
       <button type="button" role="tab" id="st-1" aria-controls="sp-1" aria-selected="false" tabindex="-1">
-        <b>Submissions</b><span>Every saved submission with its Jev assessment. Approve held ones with one click, download everything as CSV.</span>
+        <b>Submissions</b><span>Every saved submission with its content check score. Approve held ones with one click, download everything as CSV.</span>
       </button>
       <button type="button" role="tab" id="st-2" aria-controls="sp-2" aria-selected="false" tabindex="-1">
         <b>Form settings</b><span>Fields, allowed origins, limits, proof-of-work, email addresses and content checks. No editing files on the server.</span>
       </button>
       <button type="button" role="tab" id="st-3" aria-controls="sp-3" aria-selected="false" tabindex="-1">
-        <b>Mail queue</b><span>What went out, what waits for a retry and what Jev held back. Retry failed sends by hand.</span>
+        <b>Mail queue</b><span>What went out, what waits for a retry and what the content check held back. Retry failed sends by hand.</span>
       </button>
       <button type="button" role="tab" id="st-4" aria-controls="sp-4" aria-selected="false" tabindex="-1">
         <b>HTML code</b><span>Ready-made code for every form, with the honeypot field and the script. Paste it into your site.</span>
@@ -470,19 +465,19 @@ curl https://<span data-h>yoursite.com</span>/f/contact/challenge
       <div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span class="url" data-url>localhost:8026/</span></div>
       <div class="shot-stage">
         <div role="tabpanel" id="sp-0" aria-labelledby="st-0" data-url="localhost:8026/">
-          <img src="assets/panel-forms.webp" alt="List of forms with counters: stored submissions, active forms, submissions awaiting approval, failed emails and today's Jev cost" width="1600" height="778" loading="lazy">
+          <img src="assets/panel-forms-en.webp" alt="List of forms with counters: stored submissions, active forms, submissions waiting for approval and failed emails, and the Contact form with its settings" width="1600" height="778" loading="lazy">
         </div>
-        <div role="tabpanel" id="sp-1" aria-labelledby="st-1" data-url="localhost:8026/forms/kontakt/submissions" hidden>
-          <img src="assets/panel-submissions.webp" alt="Submissions of the Kontakt form: a held submission with a 93% spam score from Jev and an approve-and-send button, and a regular submission from Anna" width="1600" height="778" loading="lazy">
+        <div role="tabpanel" id="sp-1" aria-labelledby="st-1" data-url="localhost:8026/forms/contact/submissions" hidden>
+          <img src="assets/panel-submissions-en.webp" alt="Submissions of the Contact form: a regular enquiry from Anna Smith, and a held SEO offer with a 93% spam score and an Approve and send button" width="1600" height="778" loading="lazy">
         </div>
-        <div role="tabpanel" id="sp-2" aria-labelledby="st-2" data-url="localhost:8026/forms/kontakt" hidden>
-          <img src="assets/panel-settings.webp" alt="Settings of the Kontakt form: name, allowed origins, redirects and the list of fields with type, required flag and character limit" width="1600" height="778" loading="lazy">
+        <div role="tabpanel" id="sp-2" aria-labelledby="st-2" data-url="localhost:8026/forms/contact" hidden>
+          <img src="assets/panel-settings-en.webp" alt="Settings of the Contact form: name, allowed origins, redirects and the list of fields with type, required flag and character limit" width="1600" height="778" loading="lazy">
         </div>
         <div role="tabpanel" id="sp-3" aria-labelledby="st-3" data-url="localhost:8026/outbox" hidden>
-          <img src="assets/panel-outbox.webp" alt="Mail queue with Pending, Sent, Failed and Held filters and two emails: one held, one sent" width="1600" height="778" loading="lazy">
+          <img src="assets/panel-outbox-en.webp" alt="Mail queue with Pending, Sent, Failed and Held filters: the notification and confirmation for Anna were sent, the ones for the SEO offer are held" width="1600" height="778" loading="lazy">
         </div>
-        <div role="tabpanel" id="sp-4" aria-labelledby="st-4" data-url="localhost:8026/forms/kontakt/snippet" hidden>
-          <img src="assets/panel-snippet.webp" alt="Ready-made HTML code for the Kontakt form with the honeypot field and the formd.js script" width="1600" height="778" loading="lazy">
+        <div role="tabpanel" id="sp-4" aria-labelledby="st-4" data-url="localhost:8026/forms/contact/snippet" hidden>
+          <img src="assets/panel-snippet-en.webp" alt="Ready-made HTML code for the Contact form with the honeypot field and the formd.js script" width="1600" height="778" loading="lazy">
         </div>
       </div>
     </div>

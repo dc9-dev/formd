@@ -168,7 +168,9 @@ cp .env.example .env             # ustaw MAILER=log na początek
 ./formd serve
 ```
 
-Panel: `http://localhost:8026`. Utwórz formularz, podaj origin strony, pola i odbiorców, a potem włącz go. Gotowy kod HTML znajdziesz w zakładce **Kod HTML**, a przykład w [`examples/contact.html`](examples/contact.html).
+Panel: `http://localhost:8026`. Utwórz formularz, podaj origin strony, pola i odbiorców, a potem włącz go. Gotowy kod HTML znajdziesz w zakładce **Kod HTML**, a przykład w [`examples/contact.pl.html`](examples/contact.pl.html).
+
+Panel jest domyślnie po angielsku; po polsku włączysz go przez `FORMD_LANG=pl` w `.env`. Odwiedzający dostają komunikaty w języku strony (`<html lang>`), więc na polskiej stronie formularz mówi po polsku bez żadnych ustawień. Szczegóły w sekcji [Języki i komunikaty](#języki-i-komunikaty).
 
 ```html
 <form action="/f/kontakt" method="post" data-formd="ajax">
@@ -245,20 +247,25 @@ TRUSTED_PROXIES=127.0.0.1,::1    # tylko od proxy wierzymy X-Real-IP (limity per
 
 Jeśli proxy stoi na **innej maszynie** niż formd, ustaw `LISTEN_ADDR` na prywatny adres tej maszyny (np. `10.0.0.5:8025`), a w `ALLOWED_IPS` i `TRUSTED_PROXIES` wpisz adres proxy. Ruch między nimi powinien iść siecią prywatną lub VPN (WireGuard), nigdy przez internet.
 
-### Komunikaty w innych językach
+### Języki i komunikaty
 
-Domyślne komunikaty `formd.js` są po polsku. Na stronach w innych językach ustaw je atrybutami formularza:
+formd mówi po angielsku i po polsku.
+
+- **Odwiedzający:** `formd.js` czyta atrybut `lang` najbliższy formularzowi (zwykle `<html lang>`). Dla `pl` pokazuje komunikaty po polsku, w pozostałych przypadkach po angielsku, i przekazuje ten sam język serwerowi, żeby komunikaty przy polach się zgadzały. Zwykłe wysłanie formularza bez JavaScriptu korzysta z `Accept-Language` przeglądarki.
+- **Panel, maile do Ciebie i CLI:** `FORMD_LANG=en` (domyślnie) albo `FORMD_LANG=pl`. Nowe formularze dostają domyślne etykiety i treści maili w tym języku; istniejące zostają bez zmian.
+
+W innym języku albo z własnymi sformułowaniami ustaw komunikaty dla formularza:
 
 ```html
 <form action="/f/kontakt" method="post" data-formd="ajax"
-      data-formd-sending="Sending…"
-      data-formd-success="Thank you! Your message has been sent."
-      data-formd-error="Your message could not be sent. Please email us."
-      data-formd-network-error="Could not send the form. Please try again."
+      data-formd-sending="Wird gesendet…"
+      data-formd-success="Danke! Ihre Nachricht wurde gesendet."
+      data-formd-error="Das Formular konnte nicht gesendet werden."
+      data-formd-network-error="Senden fehlgeschlagen. Bitte erneut versuchen."
       data-formd-server-errors="off">
 ```
 
-`data-formd-server-errors="off"` ukrywa szczegółowe komunikaty walidacji z serwera (są po polsku) i pokazuje zamiast nich `data-formd-error`.
+`data-formd-server-errors="off"` ukrywa komunikaty serwera przy polach (po angielsku albo po polsku) i pokazuje zamiast nich `data-formd-error`.
 
 ### Wariant B: strona na innym hostingu
 

@@ -11,6 +11,7 @@ Use formd when someone has a static site (plain HTML, Hugo, Jekyll, Astro, Eleve
 - Server-side checks: allowed origins, rate limits per IP and per form, minimum fill time (3 s by default), honeypot field, duplicate detection, link and phrase filters.
 - Optional content assessment with a language model: the Polish basal models (Remek/basal-omni-1.0-ultra, Remek/basal-2.0-4.5B) running on your own hardware, or Jev through OpenRouter. Suspicious submissions can be held for approval, tagged `[SPAM?]` or dropped.
 - Submission and emails are written in one SQLite transaction; failed emails are retried for up to 24 hours.
+- English and Polish: visitor messages follow the page language; the panel and emails follow `FORMD_LANG`.
 - Admin panel on a separate local port, reached through an SSH tunnel: forms, submissions (CSV export), mail queue, audit log. argon2id passwords, server-side sessions, CSRF protection, strict CSP.
 - formd listens only on a specific local address and is exposed through a reverse proxy; only the `/f/` path is proxied.
 

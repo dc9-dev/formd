@@ -11,7 +11,7 @@
 Project site: **https://formd.top/**. It has a live demo where you can submit a form or send a bot and see which check stops it. It also has a step-by-step installation guide tailored to your domain.
 
 ```
-browser ──POST /f/kontakt──▶ nginx/Caddy (TLS) ──▶ 127.0.0.1:8025  formd (API)
+browser ──POST /f/contact──▶ nginx/Caddy (TLS) ──▶ 127.0.0.1:8025  formd (API)
                                                    127.0.0.1:8026  formd (panel, over an SSH tunnel)
                                                          │
                                                   SQLite + mail queue ──▶ SMTP / SES
@@ -76,7 +76,7 @@ Optionally, formd can score message content with the [Jev](https://typesafe.ai/b
 
 **Risk** = max(spam, fraud, abusive). When it exceeds the threshold set in the panel (70% by default), formd does what you chose for the form:
 
-- **Hold** (default): the submission is saved, but its emails (including the confirmation to the sender) wait until you approve them in the panel under the *Wstrzymane* (Held) tab.
+- **Hold** (default): the submission is saved, but its emails (including the confirmation to the sender) wait until you approve them in the panel under the *Held* tab.
 - **Flag**: emails go out as usual, with a `[SPAM?]` prefix in the subject.
 - **Drop**: the submission is silently discarded, like other spam.
 
@@ -100,7 +100,7 @@ JEV_TIMEOUT=4s
 JEV_DAILY_BUDGET_USD=1
 ```
 
-Then in the panel: form → **Ocena treści (Jev)** (content scoring) → enable it, choose the action and threshold, and add one sentence describing what the site is about (this improves accuracy).
+Then in the panel: form → **Content check (Jev)** → enable it, choose the action and threshold, and add one sentence describing what the site is about (this improves accuracy).
 
 ### Polish model on your own hardware (basal)
 
@@ -151,7 +151,7 @@ JEV_PROVIDER=basal
 #JEV_TIMEOUT=10s
 ```
 
-The startup log shows `jev content assessment available provider=basal`. Then enable **Ocena treści (Jev)** (content scoring) for a form in the panel. The form settings now say which model scores submissions and that their content stays on the server.
+The startup log shows `jev content assessment available provider=basal`. Then enable **Content check (Jev)** for a form in the panel. The form settings now say which model scores submissions and that their content stays on the server.
 
 **Notes:**
 
@@ -168,13 +168,10 @@ cp .env.example .env             # set MAILER=log to start with
 ./formd serve
 ```
 
-Panel: `http://localhost:8026`. Create a form, enter the site's origin, the fields and the recipients, then enable it. Ready-to-use HTML is in the **Kod HTML** (HTML code) tab, and there is an example in [`examples/contact.html`](examples/contact.html).
+Panel: `http://localhost:8026`. Create a form, enter the site's origin, the fields and the recipients, then enable it. Ready-to-use HTML is in the **HTML code** tab, and there is an example in [`examples/contact.html`](examples/contact.html).
 
 ```html
-<form action="/f/kontakt" method="post" data-formd="ajax"
-      data-formd-success="Thank you! Your message has been sent."
-      data-formd-error="The form could not be sent."
-      data-formd-server-errors="off">
+<form action="/f/contact" method="post" data-formd="ajax">
   <input name="name" required>
   <input type="email" name="email" required>
   <textarea name="message" required></textarea>
@@ -185,9 +182,9 @@ Panel: `http://localhost:8026`. Create a form, enter the site's origin, the fiel
 <script src="/f/formd.js" defer></script>
 ```
 
-The messages built into `formd.js` and the per-field validation messages from the server are in Polish. The `data-formd-*` attributes above set English success and error messages, and `data-formd-server-errors="off"` shows `data-formd-error` instead of the server's messages. The "sending" and network error messages can be set too; see [Messages in other languages](#messages-in-other-languages).
+formd speaks English and Polish. Visitors get messages in the language of your page (`<html lang>`), and the panel follows `FORMD_LANG`. See [Languages and messages](#languages-and-messages).
 
-> The relative URL `/f/kontakt` works when formd is exposed through a reverse proxy **on the same domain as the site**. With a separate subdomain, use full `https://…` URLs. See [HTTPS and reverse proxy](#https-and-reverse-proxy).
+> The relative URL `/f/contact` works when formd is exposed through a reverse proxy **on the same domain as the site**. With a separate subdomain, use full `https://…` URLs. See [HTTPS and reverse proxy](#https-and-reverse-proxy).
 
 ## Deploying to a server
 
@@ -218,7 +215,7 @@ browser ──HTTPS──▶ nginx / Caddy :443 (certificate) ──HTTP──�
 | | A. Same domain (recommended) | B. Separate subdomain |
 | --- | --- | --- |
 | When | The static site is on the same server as formd | The site is hosted elsewhere: GitHub Pages, Netlify, S3/CloudFront, another server |
-| Form `action` | `/f/kontakt` | `https://forms.example.com/f/kontakt` |
+| Form `action` | `/f/contact` | `https://forms.example.com/f/contact` |
 | Script | `/f/formd.js` | `https://forms.example.com/f/formd.js` |
 | Certificate | same as the site | separate one for `forms.example.com` |
 | CORS | not involved | formd responds with CORS headers for the origins set in the panel |
@@ -250,25 +247,30 @@ TRUSTED_PROXIES=127.0.0.1,::1    # X-Real-IP is trusted only from the proxy (per
 
 If the proxy runs on a **different machine** from formd, set `LISTEN_ADDR` to that machine's private address (e.g. `10.0.0.5:8025`) and put the proxy's address in `ALLOWED_IPS` and `TRUSTED_PROXIES`. Traffic between them should go over a private network or a VPN (WireGuard), never over the internet.
 
-### Messages in other languages
+### Languages and messages
 
-The default `formd.js` messages are in Polish. For sites in other languages, set them with form attributes:
+formd speaks English and Polish.
+
+- **Visitors:** `formd.js` reads the `lang` attribute nearest to the form (usually `<html lang>`). For `pl` it shows Polish messages, otherwise English, and it passes the same language to the server so that field errors match. A plain form post without JavaScript uses the browser's `Accept-Language`.
+- **Panel, emails to you and the CLI:** `FORMD_LANG=en` (default) or `FORMD_LANG=pl`. New forms get default labels and email texts in this language; existing forms keep what they have.
+
+For another language, or your own wording, set the messages per form:
 
 ```html
-<form action="/f/kontakt" method="post" data-formd="ajax"
-      data-formd-sending="Sending…"
-      data-formd-success="Thank you! Your message has been sent."
-      data-formd-error="Your message could not be sent. Please email us."
-      data-formd-network-error="Could not send the form. Please try again."
+<form action="/f/contact" method="post" data-formd="ajax"
+      data-formd-sending="Wird gesendet…"
+      data-formd-success="Danke! Ihre Nachricht wurde gesendet."
+      data-formd-error="Das Formular konnte nicht gesendet werden."
+      data-formd-network-error="Senden fehlgeschlagen. Bitte erneut versuchen."
       data-formd-server-errors="off">
 ```
 
-`data-formd-server-errors="off"` hides the detailed validation messages from the server (they are in Polish) and shows `data-formd-error` instead.
+`data-formd-server-errors="off"` hides the server's per-field messages (English or Polish) and shows `data-formd-error` instead.
 
 ### Option B: site on another host
 
 ```html
-<form action="https://forms.example.com/f/kontakt" method="post" data-formd="ajax">
+<form action="https://forms.example.com/f/contact" method="post" data-formd="ajax">
   …
 </form>
 <script src="https://forms.example.com/f/formd.js" defer></script>
@@ -280,17 +282,17 @@ If the site has its own Content-Security-Policy, add `https://forms.example.com`
 
 ```sh
 curl -I https://example.com/f/formd.js                # 200, text/javascript
-curl -s https://example.com/f/kontakt/challenge \
+curl -s https://example.com/f/contact/challenge \
      -H 'Origin: https://example.com'                  # {"token":"…","bits":16,…}
 curl -s -o /dev/null -w '%{http_code}\n' \
-     https://example.com/f/kontakt/challenge \
+     https://example.com/f/contact/challenge \
      -H 'Origin: https://evil.example'                 # 403, foreign origin
 curl -s -o /dev/null -w '%{http_code}\n' http://example.com/f/formd.js   # 301 -> HTTPS
 curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 http://IP_SERWERA:8025/healthz   # no connection: formd not visible from outside
 curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 http://IP_SERWERA:8026/login     # no connection: panel not visible from outside
 ```
 
-In the browser: DevTools → Network → submitting the form should show `POST https://…/f/kontakt` with status 200 (ajax mode) or 303 (plain POST), and no *mixed content* warnings in the console.
+In the browser: DevTools → Network → submitting the form should show `POST https://…/f/contact` with status 200 (ajax mode) or 303 (plain POST), and no *mixed content* warnings in the console.
 
 ## Email delivery
 
@@ -308,8 +310,8 @@ Test: `formd test-mail -to ty@example.com`.
 formd serve
 formd migrate
 formd user add|passwd|del <login> · formd user list
-formd list   -form kontakt -since 7d
-formd export -form kontakt -format csv|json [-since 30d]
+formd list   -form contact -since 7d
+formd export -form contact -format csv|json [-since 30d]
 formd test-mail -to adres@example.com
 ```
 

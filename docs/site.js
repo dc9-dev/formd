@@ -404,11 +404,12 @@
       site('ok', t('Thank you! Your message has been sent.', 'Dziękujemy! Wiadomość została wysłana.'));
     } else if (res === 429) {
       say('bad', 'HTTP 429.', t('Too many submissions from one address. Nothing was saved.', 'Za dużo zgłoszeń z jednego adresu. Nic nie zapisano.'));
-      site('bad', t('The form could not be sent.', 'zbyt wiele zgłoszeń, spróbuj później'));
+      site('bad', t('too many submissions, try again later', 'zbyt wiele zgłoszeń, spróbuj później'));
     } else {
       say('bad', 'HTTP 400.', t('Submission rejected, nothing was saved.', 'Zgłoszenie odrzucone, nic nie zapisano.'));
-      // the English snippet sets data-formd-server-errors="off", so visitors see data-formd-error
-      site('bad', EN ? 'The form could not be sent.' : steps.time.li.className === 'bad' ? 'formularz wysłano zbyt szybko, spróbuj ponownie za chwilę' : 'weryfikacja nie powiodła się, odśwież stronę i spróbuj ponownie');
+      site('bad', steps.time.li.className === 'bad'
+        ? t('the form was sent too quickly, try again in a moment', 'formularz wysłano zbyt szybko, spróbuj ponownie za chwilę')
+        : t('verification failed, reload the page and try again', 'weryfikacja nie powiodła się, odśwież stronę i spróbuj ponownie'));
     }
   }
 
