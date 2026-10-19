@@ -24,6 +24,99 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../site.css">
 <script src="../site.js" defer></script>
+<script type="application/ld+json">
+[
+ {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "formd",
+  "description": "Samodzielny backend formularzy dla stron statycznych: jedna binarka w Go, która przyjmuje zgłoszenia, odsiewa boty bez captchy, zapisuje je w SQLite i wysyła maile przez Twój SMTP albo Amazon SES.",
+  "url": "https://formd.top/pl/",
+  "inLanguage": "pl",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux",
+  "softwareVersion": "0.1.0",
+  "downloadUrl": "https://github.com/dc9-dev/formd/releases/latest",
+  "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+  "isAccessibleForFree": true,
+  "offers": {
+   "@type": "Offer",
+   "price": "0",
+   "priceCurrency": "USD"
+  },
+  "author": {
+   "@type": "Person",
+   "name": "Łukasz Sobiecki"
+  },
+  "sameAs": [
+   "https://github.com/dc9-dev/formd"
+  ]
+ },
+ {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "pl",
+  "mainEntity": [
+   {
+    "@type": "Question",
+    "name": "Jak dodać formularz kontaktowy do strony statycznej bez SaaS-u?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Zainstaluj formd na serwerze z Linuksem, przekaż ścieżkę /f/ przez nginx albo Caddy po HTTPS, utwórz formularz w panelu i wklej na stronę zwykły formularz HTML z jednym skryptem. Instrukcja wyżej prowadzi przez każdy krok dla Twojej domeny."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Czy formd to darmowa alternatywa dla Formspree, Netlify Forms albo Basin?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Tak. formd jest otwartym oprogramowaniem na licencji AGPL-3.0 i działa na Twoim serwerze, więc nie ma abonamentu ani limitu zgłoszeń poza tymi, które sam ustawisz. Zgłoszenia zostają w bazie SQLite na Twoim serwerze, a nie u zewnętrznej firmy. W zamian potrzebujesz serwera, na którym go uruchomisz."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Czy działa z GitHub Pages, Netlify, Cloudflare Pages albo S3?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Tak. Strona zostaje tam, gdzie jest, a formd działa na subdomenie, np. forms.twojastrona.pl, na serwerze, który kontrolujesz. Formularz wysyła dane właśnie tam. Jeśli strona już stoi na Twoim serwerze, formd działa obok niej pod /f/."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Jak formd zatrzymuje spam bez captchy?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Każdy formularz dostaje podpisany, jednorazowy token, a przeglądarka przed wysłaniem rozwiązuje małe zadanie proof-of-work SHA-256. Serwer sprawdza potem źródło, limity dla IP, minimalny czas wypełnienia, ukryte pole-pułapkę i powtórzoną treść. Bot dostaje informację o sukcesie, ale nic nie jest zapisywane ani wysyłane."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Czy może sprawdzać treść wiadomości przez AI?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Opcjonalnie. formd może zapytać polskie modele basal działające na Twoim sprzęcie albo Jev przez OpenRouter, czy wiadomość to spam, oszustwo lub treść obraźliwa. Podejrzane zgłoszenia możesz wstrzymać do zatwierdzenia, oznaczyć albo odrzucić."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Gdzie są zapisywane zgłoszenia i jak je wyciągnąć?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "W bazie SQLite na Twoim serwerze. Przeglądasz je w panelu, eksportujesz do CSV albo poleceniem formd export. Każde zgłoszenie dostajesz też mailem przez swój SMTP albo Amazon SES."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Czego potrzebuję, żeby go uruchomić?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Serwera z Linuksem (x86-64 albo ARM64), domeny, nginx albo Caddy do HTTPS oraz konta SMTP albo Amazon SES. formd to jedna binarka bez innych zależności."
+    }
+   }
+  ]
+ }
+]
+</script>
 </head>
 <body>
 <canvas class="bg" aria-hidden="true"></canvas>
@@ -381,6 +474,19 @@ curl https://<span data-h>twojastrona.pl</span>/f/kontakt/challenge
   </div>
 </section>
 
+
+<section class="faq card" id="faq" aria-labelledby="faq-h">
+  <h2 id="faq-h">Pytania</h2>
+  <div class="faq-list">
+    <details><summary>Jak dodać formularz kontaktowy do strony statycznej bez SaaS-u?</summary><p>Zainstaluj formd na serwerze z Linuksem, przekaż ścieżkę /f/ przez nginx albo Caddy po HTTPS, utwórz formularz w panelu i wklej na stronę zwykły formularz HTML z jednym skryptem. Instrukcja wyżej prowadzi przez każdy krok dla Twojej domeny.</p></details>
+    <details><summary>Czy formd to darmowa alternatywa dla Formspree, Netlify Forms albo Basin?</summary><p>Tak. formd jest otwartym oprogramowaniem na licencji AGPL-3.0 i działa na Twoim serwerze, więc nie ma abonamentu ani limitu zgłoszeń poza tymi, które sam ustawisz. Zgłoszenia zostają w bazie SQLite na Twoim serwerze, a nie u zewnętrznej firmy. W zamian potrzebujesz serwera, na którym go uruchomisz.</p></details>
+    <details><summary>Czy działa z GitHub Pages, Netlify, Cloudflare Pages albo S3?</summary><p>Tak. Strona zostaje tam, gdzie jest, a formd działa na subdomenie, np. forms.twojastrona.pl, na serwerze, który kontrolujesz. Formularz wysyła dane właśnie tam. Jeśli strona już stoi na Twoim serwerze, formd działa obok niej pod /f/.</p></details>
+    <details><summary>Jak formd zatrzymuje spam bez captchy?</summary><p>Każdy formularz dostaje podpisany, jednorazowy token, a przeglądarka przed wysłaniem rozwiązuje małe zadanie proof-of-work SHA-256. Serwer sprawdza potem źródło, limity dla IP, minimalny czas wypełnienia, ukryte pole-pułapkę i powtórzoną treść. Bot dostaje informację o sukcesie, ale nic nie jest zapisywane ani wysyłane.</p></details>
+    <details><summary>Czy może sprawdzać treść wiadomości przez AI?</summary><p>Opcjonalnie. formd może zapytać polskie modele basal działające na Twoim sprzęcie albo Jev przez OpenRouter, czy wiadomość to spam, oszustwo lub treść obraźliwa. Podejrzane zgłoszenia możesz wstrzymać do zatwierdzenia, oznaczyć albo odrzucić.</p></details>
+    <details><summary>Gdzie są zapisywane zgłoszenia i jak je wyciągnąć?</summary><p>W bazie SQLite na Twoim serwerze. Przeglądasz je w panelu, eksportujesz do CSV albo poleceniem formd export. Każde zgłoszenie dostajesz też mailem przez swój SMTP albo Amazon SES.</p></details>
+    <details><summary>Czego potrzebuję, żeby go uruchomić?</summary><p>Serwera z Linuksem (x86-64 albo ARM64), domeny, nginx albo Caddy do HTTPS oraz konta SMTP albo Amazon SES. formd to jedna binarka bez innych zależności.</p></details>
+  </div>
+</section>
 
 </main>
 

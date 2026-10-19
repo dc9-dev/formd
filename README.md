@@ -26,6 +26,18 @@ browser ──POST /f/kontakt──▶ nginx/Caddy (TLS) ──▶ 127.0.0.1:802
 
 ![formd panel: list of submissions for a form](docs/assets/panel-submissions.webp)
 
+## How it compares
+
+formd is for people who already have, or are happy to run, a small Linux server. If you have no server at all, a hosted form service is simpler.
+
+| | formd | Formspree, Basin and similar | Netlify Forms | Formbricks |
+| --- | --- | --- | --- | --- |
+| Where it runs | your server, one binary | the provider's cloud | Netlify, for sites hosted there | your server or their cloud |
+| Where submissions are stored | SQLite on your server | with the provider | with Netlify | your database or their cloud |
+| Works with any static host | yes | yes | Netlify only | yes |
+| Cost | free (AGPL-3.0) | plans with submission limits | included with Netlify plans, with limits | free self-hosted, paid cloud |
+| Focus | contact and feedback forms for static sites | forms | forms | surveys and experience management |
+
 ## Security
 
 | Layer | Mechanism |
@@ -309,6 +321,23 @@ make vet
 ```
 
 Layout: `cmd/formd` (CLI), `internal/server` (public API + `formd.js`), `internal/admin` (panel), `internal/antispam` (challenge, PoW, limits), `internal/forms` (definitions and validation), `internal/store` (SQLite), `internal/mail` (SMTP/SES/log), `internal/worker` (queue).
+
+## FAQ
+
+**How do I add a contact form to a static site without a SaaS?**
+Install formd on a Linux server, proxy `/f/` through nginx or Caddy over HTTPS, create the form in the panel and paste the HTML from [Quick start](#quick-start). The [website](https://formd.top/#install) has a step-by-step guide that fills in your domain.
+
+**Does it work with GitHub Pages, Netlify, Cloudflare Pages or S3?**
+Yes. The site stays where it is; formd runs on a subdomain such as `forms.example.com` on a server you control. See [Option B](#option-b-site-on-another-host).
+
+**How does it stop spam without a captcha?**
+A signed single-use token with a SHA-256 proof-of-work, then origin, rate limit, minimum fill time, honeypot and duplicate checks on the server. Optionally a language model scores the content. See [Protection against mass submissions](#protection-against-mass-submissions).
+
+**Where are submissions stored?**
+In SQLite on your server. Read them in the panel, export CSV, or run `formd export`.
+
+**What does it need?**
+A Linux server (x86-64 or ARM64), a domain, nginx or Caddy, and SMTP or Amazon SES.
 
 ## License
 

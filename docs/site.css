@@ -225,14 +225,14 @@ button, input, textarea { font: inherit; color: inherit; }
 /* ---------- install guide ---------- */
 .install, .panel, .model { max-width: var(--max); margin: 0 auto; padding: clamp(64px, 9vw, 112px) var(--gutter) 0; }
 .install h2, .panel h2, .model h2 { font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 650; letter-spacing: -0.03em; line-height: 1.1; }
-.install, .panel.card, .model.card {
+.install, .panel.card, .model.card, .faq.card {
   max-width: calc(var(--max) - 2 * var(--gutter) + 2 * clamp(20px, 4vw, 56px));
   margin-top: clamp(64px, 9vw, 112px);
   padding: clamp(28px, 5vw, 56px) clamp(20px, 4vw, 56px) clamp(24px, 4vw, 40px);
   background: var(--bg); border: 1px solid var(--line); border-radius: 20px;
   box-shadow: 0 1px 2px rgba(22, 27, 38, .04), 0 24px 48px -28px rgba(22, 27, 38, .18);
 }
-@media (max-width: 1240px) { .install, .panel.card, .model.card { margin-left: var(--gutter); margin-right: var(--gutter); } }
+@media (max-width: 1240px) { .install, .panel.card, .model.card, .faq.card { margin-left: var(--gutter); margin-right: var(--gutter); } }
 .install .setup { background: var(--surface); }
 .panel.card { margin-top: clamp(20px, 3vw, 32px); }
 .inst-head p { margin-top: 12px; max-width: 40em; color: var(--muted); font-size: 1.0625rem; }
@@ -321,6 +321,17 @@ button, input, textarea { font: inherit; color: inherit; }
 .r-meta b { color: var(--ink); font-weight: 550; }
 .r-verdict { margin-top: 14px; padding: 10px 12px; border-radius: 9px; background: var(--amber-soft); color: var(--amber); font-size: 0.875rem; }
 @media (max-width: 900px) { .m-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- questions ---------- */
+.faq { max-width: var(--max); margin: 0 auto; padding: clamp(64px, 9vw, 112px) var(--gutter) 0; }
+.faq h2 { font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 650; letter-spacing: -0.03em; line-height: 1.1; }
+.faq-list { margin-top: clamp(20px, 3vw, 28px); max-width: 52em; border-top: 1px solid var(--line); }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq summary { cursor: pointer; padding: 16px 28px 16px 0; font-weight: 600; list-style: none; position: relative; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: 4px; top: 14px; font: 400 1.25rem/1 var(--sans); color: var(--muted); }
+.faq details[open] summary::after { content: "\2212"; }
+.faq details p { padding: 0 0 18px; max-width: 44em; color: var(--muted); }
 
 /* ---------- panel: list on the left, screenshot on the right ---------- */
 .panel-head p { margin-top: 12px; max-width: 46em; color: var(--muted); font-size: 1.0625rem; }

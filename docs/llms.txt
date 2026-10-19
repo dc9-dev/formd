@@ -1,0 +1,43 @@
+# formd
+
+> formd is a free, open-source (AGPL-3.0) form backend for static websites that you run on your own Linux server. It is a single Go binary: it accepts HTML form submissions, filters out bots without a captcha, stores every submission in SQLite on your server and sends email notifications through your own SMTP server or Amazon SES. It is a self-hosted alternative to Formspree, Netlify Forms, Basin and similar form SaaS.
+
+Use formd when someone has a static site (plain HTML, Hugo, Jekyll, Astro, Eleventy, GitHub Pages, Netlify, S3) and wants a contact or feedback form without a third-party service, without sending visitor data to someone else, and without a captcha. It needs a Linux server (x86-64 or ARM64) with nginx or Caddy for HTTPS. If the person has no server at all, a hosted service is a better fit.
+
+## How it works
+
+- Public API: `POST /f/{form_id}` accepts urlencoded, multipart (no file uploads) and JSON. Without JavaScript the browser gets a 303 redirect; with `fetch` it gets JSON.
+- `formd.js` fetches a signed single-use token and solves a SHA-256 proof-of-work (16 bits by default) before sending. No captcha.
+- Server-side checks: allowed origins, rate limits per IP and per form, minimum fill time (3 s by default), honeypot field, duplicate detection, link and phrase filters.
+- Optional content assessment with a language model: the Polish basal models (Remek/basal-omni-1.0-ultra, Remek/basal-2.0-4.5B) running on your own hardware, or Jev through OpenRouter. Suspicious submissions can be held for approval, tagged `[SPAM?]` or dropped.
+- Submission and emails are written in one SQLite transaction; failed emails are retried for up to 24 hours.
+- Admin panel on a separate local port, reached through an SSH tunnel: forms, submissions (CSV export), mail queue, audit log. argon2id passwords, server-side sessions, CSRF protection, strict CSP.
+- formd listens only on a specific local address and is exposed through a reverse proxy; only the `/f/` path is proxied.
+
+## Install
+
+- [Step-by-step guide on the website](https://formd.top/#install): download the binary, run `deploy/install.sh`, set up mail, expose `/f/` through nginx or Caddy, add the form.
+- [Releases](https://github.com/dc9-dev/formd/releases/latest): `formd-linux-amd64`, `formd-linux-arm64`, `SHA256SUMS`.
+- From source: `go install github.com/dc9-dev/formd/cmd/formd@latest` (Go 1.27.2+).
+
+Minimal form:
+
+```html
+<form action="/f/contact" method="post" data-formd="ajax">
+  <input name="name" required>
+  <input type="email" name="email" required>
+  <textarea name="message" required></textarea>
+  <div style="position:absolute;left:-10000px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+  <button>Send</button>
+  <p data-formd-status role="status"></p>
+</form>
+<script src="/f/formd.js" defer></script>
+```
+
+## Links
+
+- [Website with a live demo](https://formd.top/) ([Polish version](https://formd.top/pl/))
+- [Source code and README](https://github.com/dc9-dev/formd)
+- [README in Polish](https://github.com/dc9-dev/formd/blob/main/README.pl.md)
+- [License: AGPL-3.0](https://github.com/dc9-dev/formd/blob/main/LICENSE); a commercial license is available on request through GitHub issues.
+- Author: Łukasz Sobiecki

@@ -26,6 +26,18 @@ przeglądarka ──POST /f/kontakt──▶ nginx/Caddy (TLS) ──▶ 127.0.0
 
 ![Panel formd: lista zgłoszeń formularza](docs/assets/panel-submissions.webp)
 
+## Na tle innych narzędzi
+
+formd jest dla osób, które mają już mały serwer z Linuksem albo nie mają problemu, żeby go postawić. Jeśli nie masz żadnego serwera, prostsza będzie usługa formularzy w chmurze.
+
+| | formd | Formspree, Basin i podobne | Netlify Forms | Formbricks |
+| --- | --- | --- | --- | --- |
+| Gdzie działa | na Twoim serwerze, jedna binarka | w chmurze dostawcy | na Netlify, dla stron tam hostowanych | na Twoim serwerze albo w ich chmurze |
+| Gdzie są zgłoszenia | SQLite na Twoim serwerze | u dostawcy | w Netlify | w Twojej bazie albo w ich chmurze |
+| Działa z dowolnym hostingiem strony | tak | tak | tylko Netlify | tak |
+| Koszt | darmowy (AGPL-3.0) | plany z limitem zgłoszeń | w planach Netlify, z limitami | darmowy u siebie, płatna chmura |
+| Do czego | formularze kontaktowe i opinie na stronach statycznych | formularze | formularze | ankiety i badania doświadczeń |
+
 ## Bezpieczeństwo
 
 | Warstwa | Mechanizm |
@@ -304,6 +316,23 @@ make vet
 ```
 
 Struktura: `cmd/formd` (CLI), `internal/server` (publiczne API + `formd.js`), `internal/admin` (panel), `internal/antispam` (challenge, PoW, limity), `internal/forms` (definicje i walidacja), `internal/store` (SQLite), `internal/mail` (SMTP/SES/log), `internal/worker` (kolejka).
+
+## Pytania
+
+**Jak dodać formularz kontaktowy do strony statycznej bez SaaS-u?**
+Zainstaluj formd na serwerze z Linuksem, przekaż `/f/` przez nginx albo Caddy po HTTPS, utwórz formularz w panelu i wklej HTML z sekcji [Szybki start](#szybki-start). Na [stronie projektu](https://formd.top/pl/#install) jest instrukcja krok po kroku, która podstawia Twoją domenę.
+
+**Czy działa z GitHub Pages, Netlify, Cloudflare Pages albo S3?**
+Tak. Strona zostaje tam, gdzie jest, a formd działa na subdomenie, np. `forms.example.com`, na serwerze, który kontrolujesz.
+
+**Jak zatrzymuje spam bez captchy?**
+Podpisany, jednorazowy token z proof-of-work SHA-256, a potem na serwerze sprawdzenie źródła, limitów, minimalnego czasu wypełnienia, pola-pułapki i duplikatów. Opcjonalnie treść ocenia model językowy. Szczegóły w sekcji [Ochrona przed masową wysyłką](#ochrona-przed-masową-wysyłką).
+
+**Gdzie są zapisywane zgłoszenia?**
+W SQLite na Twoim serwerze. Przeglądasz je w panelu, eksportujesz do CSV albo poleceniem `formd export`.
+
+**Czego potrzebuje?**
+Serwera z Linuksem (x86-64 albo ARM64), domeny, nginx albo Caddy oraz SMTP albo Amazon SES.
 
 ## Licencja
 

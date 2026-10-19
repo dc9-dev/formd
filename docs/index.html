@@ -33,6 +33,99 @@ try {
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site.css">
 <script src="site.js" defer></script>
+<script type="application/ld+json">
+[
+ {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "formd",
+  "description": "Self-hosted form backend for static websites: one Go binary that accepts form submissions, filters out bots without a captcha, stores them in SQLite and sends email through your SMTP server or Amazon SES.",
+  "url": "https://formd.top/",
+  "inLanguage": "en",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux",
+  "softwareVersion": "0.1.0",
+  "downloadUrl": "https://github.com/dc9-dev/formd/releases/latest",
+  "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+  "isAccessibleForFree": true,
+  "offers": {
+   "@type": "Offer",
+   "price": "0",
+   "priceCurrency": "USD"
+  },
+  "author": {
+   "@type": "Person",
+   "name": "Łukasz Sobiecki"
+  },
+  "sameAs": [
+   "https://github.com/dc9-dev/formd"
+  ]
+ },
+ {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "en",
+  "mainEntity": [
+   {
+    "@type": "Question",
+    "name": "How do I add a contact form to a static site without a SaaS?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Install formd on a Linux server, proxy the /f/ path through nginx or Caddy over HTTPS, create the form in the panel and paste a plain HTML form with one script tag into your site. The guide above walks through every step for your domain."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Is formd a free alternative to Formspree, Netlify Forms or Basin?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Yes. formd is open source under AGPL-3.0 and runs on your own server, so there is no monthly plan and no submission quota other than the limits you set. Submissions stay in an SQLite database on your server instead of a third-party service. The trade-off is that you need a server to run it."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Does it work with GitHub Pages, Netlify, Cloudflare Pages or S3?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Yes. The site can stay where it is; formd runs on a subdomain such as forms.yoursite.com on a server you control, and the form posts there. If the site already runs on your own server, formd sits next to it under /f/."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "How does formd stop spam without a captcha?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Each form gets a signed single-use token and the browser solves a small SHA-256 proof-of-work before sending. The server then checks the origin, rate limits per IP, the minimum fill time, a hidden honeypot field and duplicate content. Bots are told they succeeded, but nothing is saved or emailed."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Can it check message content with AI?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Optionally. formd can ask the Polish basal language models running on your own hardware, or Jev through OpenRouter, whether a message is spam, a scam or abusive. Suspicious submissions can be held for approval, tagged or dropped."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Where are submissions stored and how do I get them out?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "In an SQLite database on your server. You read them in the admin panel, export them as CSV, or use the formd export command. Every submission is also emailed to you through your SMTP server or Amazon SES."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "What do I need to run it?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "A Linux server (x86-64 or ARM64), a domain, nginx or Caddy for HTTPS, and an SMTP account or Amazon SES. formd is a single binary with no other dependencies."
+    }
+   }
+  ]
+ }
+]
+</script>
 </head>
 <body>
 <canvas class="bg" aria-hidden="true"></canvas>
@@ -396,6 +489,19 @@ curl https://<span data-h>yoursite.com</span>/f/contact/challenge
   </div>
 </section>
 
+
+<section class="faq card" id="faq" aria-labelledby="faq-h">
+  <h2 id="faq-h">Questions</h2>
+  <div class="faq-list">
+    <details><summary>How do I add a contact form to a static site without a SaaS?</summary><p>Install formd on a Linux server, proxy the /f/ path through nginx or Caddy over HTTPS, create the form in the panel and paste a plain HTML form with one script tag into your site. The guide above walks through every step for your domain.</p></details>
+    <details><summary>Is formd a free alternative to Formspree, Netlify Forms or Basin?</summary><p>Yes. formd is open source under AGPL-3.0 and runs on your own server, so there is no monthly plan and no submission quota other than the limits you set. Submissions stay in an SQLite database on your server instead of a third-party service. The trade-off is that you need a server to run it.</p></details>
+    <details><summary>Does it work with GitHub Pages, Netlify, Cloudflare Pages or S3?</summary><p>Yes. The site can stay where it is; formd runs on a subdomain such as forms.yoursite.com on a server you control, and the form posts there. If the site already runs on your own server, formd sits next to it under /f/.</p></details>
+    <details><summary>How does formd stop spam without a captcha?</summary><p>Each form gets a signed single-use token and the browser solves a small SHA-256 proof-of-work before sending. The server then checks the origin, rate limits per IP, the minimum fill time, a hidden honeypot field and duplicate content. Bots are told they succeeded, but nothing is saved or emailed.</p></details>
+    <details><summary>Can it check message content with AI?</summary><p>Optionally. formd can ask the Polish basal language models running on your own hardware, or Jev through OpenRouter, whether a message is spam, a scam or abusive. Suspicious submissions can be held for approval, tagged or dropped.</p></details>
+    <details><summary>Where are submissions stored and how do I get them out?</summary><p>In an SQLite database on your server. You read them in the admin panel, export them as CSV, or use the formd export command. Every submission is also emailed to you through your SMTP server or Amazon SES.</p></details>
+    <details><summary>What do I need to run it?</summary><p>A Linux server (x86-64 or ARM64), a domain, nginx or Caddy for HTTPS, and an SMTP account or Amazon SES. formd is a single binary with no other dependencies.</p></details>
+  </div>
+</section>
 
 </main>
 
